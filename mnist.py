@@ -50,17 +50,23 @@ class Dataset:
         finally:
             connection.close()
 
-    def load_train_images(self) -> jax.Array:
+    def load_train_images(self, device: jax.Device) -> jax.Array:
         return self._load_images(
-            os.path.join(self._cache_directory, Dataset.TRAIN_IMAGES_FILE_NAME), 2051
+            os.path.join(self._cache_directory, Dataset.TRAIN_IMAGES_FILE_NAME),
+            2051,
+            device,
         )
 
-    def load_test_images(self) -> jax.Array:
+    def load_test_images(self, device: jax.Device) -> jax.Array:
         return self._load_images(
-            os.path.join(self._cache_directory, Dataset.TEST_IMAGES_FILE_NAME), 2051
+            os.path.join(self._cache_directory, Dataset.TEST_IMAGES_FILE_NAME),
+            2051,
+            device,
         )
 
-    def _load_images(self, file_path: str, expected_magic_number: int) -> jax.Array:
+    def _load_images(
+        self, file_path: str, expected_magic_number: int, device: jax.Device
+    ) -> jax.Array:
         with gzip.open(file_path) as f:
             magic_number = int.from_bytes(f.read(4), byteorder="big", signed=True)
             if magic_number != expected_magic_number:
@@ -74,30 +80,38 @@ class Dataset:
             images_in_bytes = f.read(
                 number_of_images * number_of_rows * number_of_columns
             )
-        flat_images = jnp.frombuffer(images_in_bytes, dtype=jnp.uint8)
+
+        with jax.default_device(device):
+            flat_images = jnp.frombuffer(images_in_bytes, dtype=jnp.uint8)
+
         # JAX-Metal does not support reshaping on the GPU, so we fallback onto CPU and later
         # will put it back on the GPU.
-        backend_for_reshape = (
-            "cpu" if jax.default_backend() == "METAL" else jax.default_backend()
+        if device.platform == "METAL":
+            device_for_reshape = jax.devices("cpu")[0]
+        else:
+            device_for_reshape = device
+        images = jax.device_put(flat_images, device_for_reshape).reshape(
+            number_of_images, number_of_rows, number_of_columns
         )
-        device_for_reshape = jax.devices(backend_for_reshape)[0]
-        with jax.default_device(device_for_reshape):
-            images = flat_images.reshape(
-                number_of_images, number_of_rows, number_of_columns
-            )
-            return jax.device_put(images, jax.devices()[0])
+        return jax.device_put(images, device)
 
-    def load_train_labels(self) -> jax.Array:
+    def load_train_labels(self, device: jax.Device) -> jax.Array:
         return self._load_labels(
-            os.path.join(self._cache_directory, Dataset.TRAIN_LABELS_FILE_NAME), 2049
+            os.path.join(self._cache_directory, Dataset.TRAIN_LABELS_FILE_NAME),
+            2049,
+            device,
         )
 
-    def load_test_labels(self) -> jax.Array:
+    def load_test_labels(self, device: jax.Device) -> jax.Array:
         return self._load_labels(
-            os.path.join(self._cache_directory, Dataset.TEST_LABELS_FILE_NAME), 2049
+            os.path.join(self._cache_directory, Dataset.TEST_LABELS_FILE_NAME),
+            2049,
+            device,
         )
 
-    def _load_labels(self, file_path: str, expected_magic_number: int) -> jax.Array:
+    def _load_labels(
+        self, file_path: str, expected_magic_number: int, device: jax.Device
+    ) -> jax.Array:
         with gzip.open(file_path) as f:
             magic_number = int.from_bytes(f.read(4), byteorder="big", signed=True)
             if magic_number != expected_magic_number:
@@ -107,5 +121,6 @@ class Dataset:
             # else...
             number_of_labels = int.from_bytes(f.read(4), byteorder="big", signed=True)
             labels_in_bytes = f.read(number_of_labels)
-        labels = jnp.frombuffer(labels_in_bytes, dtype=jnp.uint8)
+        with jax.default_device(device):
+            labels = jnp.frombuffer(labels_in_bytes, dtype=jnp.uint8)
         return labels

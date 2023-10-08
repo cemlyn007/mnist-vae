@@ -136,7 +136,6 @@ class Experiment:
         return Decoder()
 
     def _get_optimizer(self, learning_rate: float) -> optax.GradientTransformation:
-        # return optax.inject_hyperparams(optax.adamaxw)(learning_rate=learning_rate)
         return optax.inject_hyperparams(optax.adam)(learning_rate=learning_rate)
 
     def _initial_state(

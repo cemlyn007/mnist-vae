@@ -52,6 +52,25 @@ def get_hyperparameters(last_neptune_run: str) -> experiment.Hyperparameters:
     return hyperparameters
 
 
+def get_last_hyperparameters_and_settings(
+    last_neptune_run: str,
+) -> tuple[experiment.Hyperparameters, renderer.Settings]:
+    read_logger = logger.Logger(
+        neptune_project, neptune_api_token, last_neptune_run, read_only=True
+    )
+    try:
+        hyperparameters = experiment.Hyperparameters(
+            latent_dims=read_logger.get_int("hyperparameters/latent_dims"),
+            learning_rate=read_logger.get_float("hyperparameters/learning_rate"),
+        )
+        settings = renderer.Settings(
+            beta=read_logger.get_last_float("metrics/beta"),
+        )
+    finally:
+        read_logger.close()
+    return hyperparameters, settings
+
+
 if __name__ == "__main__":
     import os
     import numpy as np
@@ -106,14 +125,17 @@ if __name__ == "__main__":
         shutil.rmtree(experiment_directory, ignore_errors=True)
         last_neptune_run = None
         hyperparameters = experiment.Hyperparameters(latent_dims=16, learning_rate=1e-3)
+        settings = renderer.Settings(beta=0.5)
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
-        hyperparameters = get_hyperparameters(last_neptune_run)
+        hyperparameters, settings = get_last_hyperparameters_and_settings(
+            last_neptune_run
+        )
 
     if not os.path.exists(experiment_directory):
         os.makedirs(experiment_directory)
 
-    view = renderer.Renderer(renderer.Settings(beta=1.0))
+    view = renderer.Renderer(settings)
     try:
         write_logger = logger.Logger(
             neptune_project, neptune_api_token, last_neptune_run, flush_period=1.0

@@ -117,7 +117,6 @@ if __name__ == "__main__":
                 for key, value in metrics.items():
                     run[f"metrics/{key}"].append(value, timestamp=timestamp, step=step)
 
-                # Do this to be less memory hoggy.
                 if predict_interval and step % predict_interval == 0:
                     start_predict = time.monotonic()
                     image_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

@@ -7,9 +7,11 @@ class Settings(typing.NamedTuple):
 
 
 class Renderer:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, icon_file_path: str) -> None:
         self._settings = settings
         self._root = tk.Tk(className=" MNIST VAE Settings")
+
+        self._root.iconphoto(False, tk.PhotoImage(file=icon_file_path))
         tk.Frame(self._root)
 
         tk.Label(self._root, text="Beta:", padx=5, pady=5).grid(column=0, row=0)

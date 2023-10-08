@@ -135,7 +135,7 @@ if __name__ == "__main__":
     if not os.path.exists(experiment_directory):
         os.makedirs(experiment_directory)
 
-    view = renderer.Renderer(settings)
+    view = renderer.Renderer(settings, os.path.join(os.getcwd(), "assets", "icon.png"))
     try:
         write_logger = logger.Logger(
             neptune_project, neptune_api_token, last_neptune_run, flush_period=1.0

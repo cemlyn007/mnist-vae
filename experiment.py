@@ -172,15 +172,14 @@ class Experiment:
             step=jnp.array(0, dtype=jnp.uint32),
         )
 
-    def train_step(self) -> dict[str, any]:
-        self._state, metrics = self._train_step(self._state)
+    def train_step(self, beta: float) -> dict[str, any]:
+        self._state, metrics = self._train_step(self._state, beta)
         step = self._state.step.item()
         self._checkpoint_manager.save(step, self._state, metrics=metrics)
         return {"step": step, **metrics}
 
-    def _train_step(self, state: State) -> tuple[State, dict[str, any]]:
+    def _train_step(self, state: State, beta: float) -> tuple[State, dict[str, any]]:
         new_key, key = jax.random.split(state.key)
-        beta = 0.025
         (loss, extras), grad = jax.value_and_grad(self._get_loss, has_aux=True)(
             state.variables, key, beta
         )

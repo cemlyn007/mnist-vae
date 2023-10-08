@@ -4,7 +4,7 @@ from typing import Callable, TypeVar
 import experiment
 import time
 import logger
-
+import renderer
 
 T = TypeVar("T")
 
@@ -54,7 +54,6 @@ def get_hyperparameters(last_neptune_run: str) -> experiment.Hyperparameters:
 
 if __name__ == "__main__":
     import os
-    import neptune
     import numpy as np
     import argparse
     import PIL.Image
@@ -114,71 +113,77 @@ if __name__ == "__main__":
     if not os.path.exists(experiment_directory):
         os.makedirs(experiment_directory)
 
-    write_logger = logger.Logger(
-        neptune_project, neptune_api_token, last_neptune_run, flush_period=10.0
-    )
-    if new_experiment:
-        cache_neptune_run_id(last_neptune_run_path, write_logger.run_id)
-
-    this_experiment = experiment.Experiment(
-        hyperparameters, checkpoint_path, cache_directory, backend
-    )
+    view = renderer.Renderer(renderer.Settings(beta=1.0))
     try:
-        if this_experiment.checkpoint_exists():
-            this_experiment.restore()
-        else:
-            this_experiment.reset(0)
-
-        write_logger.set_values(
-            {
-                f"hyperparameters/{key}": value
-                for key, value in hyperparameters._asdict().items()
-            }
+        write_logger = logger.Logger(
+            neptune_project, neptune_api_token, last_neptune_run, flush_period=1.0
         )
+        try:
+            if new_experiment:
+                cache_neptune_run_id(last_neptune_run_path, write_logger.run_id)
 
-        log_values = {}
-        log_images = {}
-        while True:
-            start_iteration = time.monotonic()
-            (
-                metrics,
-                log_values["profile/train_step_duration_ms"],
-            ) = measure_duration_ms(this_experiment.train_step)
-            log_values.update(
-                {f"metrics/{key}": value for key, value in metrics.items()}
+            this_experiment = experiment.Experiment(
+                hyperparameters, checkpoint_path, cache_directory, backend
             )
+            try:
+                if this_experiment.checkpoint_exists():
+                    this_experiment.restore()
+                else:
+                    this_experiment.reset(0)
 
-            timestamp = time.time()
-            step: int = metrics.pop("step")
-
-            if predict_interval and step % predict_interval == 0:
-                (
-                    predicted_images,
-                    log_values["profile/predict_duration_ms"],
-                ) = measure_duration_ms(
-                    predict_images, this_experiment, PREDICT_IMAGE_IDS
-                )
-                log_images.update(
+                write_logger.set_values(
                     {
-                        f"train/predicted_images/{image_id}": image
-                        for image_id, image in zip(
-                            PREDICT_IMAGE_IDS, predicted_images, strict=True
-                        )
+                        f"hyperparameters/{key}": value
+                        for key, value in hyperparameters._asdict().items()
                     }
                 )
 
-            write_logger.append_values(log_values, step, timestamp)
-            log_values.clear()
-            write_logger.append_images(log_images, step, timestamp)
-            log_images.clear()
-            end_iteration = time.monotonic()
-            iteration_duration_ms = (end_iteration - start_iteration) * 1000.0
-            print(f"Step {step} took {iteration_duration_ms:.2f}ms")
+                log_values = {}
+                log_images = {}
+                while view.open:
+                    start_iteration = time.monotonic()
+                    settings = view.update()
 
-    except KeyboardInterrupt:
-        print("Stopping...", flush=True)
-    finally:
-        try:
-            this_experiment.close()
+                    (
+                        metrics,
+                        log_values["profile/train_step_duration_ms"],
+                    ) = measure_duration_ms(this_experiment.train_step, settings.beta)
+                    log_values.update(
+                        {f"metrics/{key}": value for key, value in metrics.items()}
+                    )
+
+                    timestamp = time.time()
+                    step: int = metrics.pop("step")
+
+                    if predict_interval and step % predict_interval == 0:
+                        (
+                            predicted_images,
+                            log_values["profile/predict_duration_ms"],
+                        ) = measure_duration_ms(
+                            predict_images, this_experiment, PREDICT_IMAGE_IDS
+                        )
+                        log_images.update(
+                            {
+                                f"train/predicted_images/{image_id}": image
+                                for image_id, image in zip(
+                                    PREDICT_IMAGE_IDS, predicted_images, strict=True
+                                )
+                            }
+                        )
+
+                    write_logger.append_values(log_values, step, timestamp)
+                    log_values.clear()
+                    write_logger.append_images(log_images, step, timestamp)
+                    log_images.clear()
+                    end_iteration = time.monotonic()
+                    iteration_duration_ms = (end_iteration - start_iteration) * 1000.0
+                    print(f"Step {step} took {iteration_duration_ms:.2f}ms")
+
+            except KeyboardInterrupt:
+                print("Stopping...", flush=True)
+            finally:
+                this_experiment.close()
         finally:
             write_logger.close()
+    finally:
+        view.close()

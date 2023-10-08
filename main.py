@@ -1,13 +1,67 @@
+import numpy as np
+import PIL.Image
+from typing import Callable, TypeVar
+import experiment
+import time
+import logger
+
+
+T = TypeVar("T")
+
+
+def measure_duration_ms(func: Callable[..., T], *args, **kwargs) -> tuple[T, float]:
+    start_time = time.monotonic()
+    result = func(*args, **kwargs)
+    end_time = time.monotonic()
+    elapsed_time = end_time - start_time
+    return result, elapsed_time * 1000.0
+
+
+def predict_images(
+    this_experiment: experiment.Experiment, image_ids: list[int]
+) -> list[PIL.Image.Image]:
+    images = this_experiment.predict(0, image_ids)
+    images = np.reshape(
+        np.round(np.asarray(images, dtype=np.float32)),
+        (-1, 28, 28),
+    ).astype(np.uint8)
+    return [PIL.Image.fromarray(image) for image in images]
+
+
+def get_last_neptune_run(last_neptune_file_path: str) -> str:
+    with open(last_neptune_file_path, "r") as f:
+        return f.read()
+
+
+def cache_neptune_run_id(last_neptune_file_path: str, run_id: str) -> None:
+    with open(last_neptune_file_path, "w") as f:
+        f.write(run_id)
+
+
+def get_hyperparameters(last_neptune_run: str) -> experiment.Hyperparameters:
+    read_logger = logger.Logger(
+        neptune_project, neptune_api_token, last_neptune_run, read_only=True
+    )
+    try:
+        hyperparameters = experiment.Hyperparameters(
+            latent_dims=read_logger.get_int("hyperparameters/latent_dims"),
+            learning_rate=read_logger.get_float("hyperparameters/learning_rate"),
+        )
+    except:
+        read_logger.close()
+    return hyperparameters
+
+
 if __name__ == "__main__":
     import os
-    import time
     import neptune
     import numpy as np
     import argparse
     import PIL.Image
     import shutil
     import platform
-    import experiment
+
+    PREDICT_IMAGE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     default_experiment_directory = os.path.join(os.getcwd(), "experiments")
     if platform.system() == "Darwin":
@@ -51,30 +105,20 @@ if __name__ == "__main__":
         if os.path.exists(last_neptune_run_path):
             os.remove(last_neptune_run_path)
         shutil.rmtree(experiment_directory, ignore_errors=True)
+        last_neptune_run = None
         hyperparameters = experiment.Hyperparameters(latent_dims=16, learning_rate=1e-3)
     else:
-        if os.path.exists(last_neptune_run_path):
-            with open(last_neptune_run_path, "r") as f:
-                last_neptune_run = f.read()
-            run = neptune.init_run(
-                with_id=last_neptune_run,
-                project=neptune_project,
-                api_token=neptune_api_token,
-                capture_hardware_metrics=False,
-                capture_stderr=False,
-                capture_stdout=False,
-                capture_traceback=False,
-                mode="read-only",
-            )
-            try:
-                hyperparameters = experiment.Hyperparameters(
-                    latent_dims=run["hyperparameters/latent_dims"].fetch(),
-                    learning_rate=run["hyperparameters/learning_rate"].fetch(),
-                )
-            finally:
-                run.stop()
-        else:
-            raise RuntimeError("No last Neptune run found!")
+        last_neptune_run = get_last_neptune_run(last_neptune_run_path)
+        hyperparameters = get_hyperparameters(last_neptune_run)
+
+    if not os.path.exists(experiment_directory):
+        os.makedirs(experiment_directory)
+
+    write_logger = logger.Logger(
+        neptune_project, neptune_api_token, last_neptune_run, flush_period=10.0
+    )
+    if new_experiment:
+        cache_neptune_run_id(last_neptune_run_path, write_logger.run_id)
 
     this_experiment = experiment.Experiment(
         hyperparameters, checkpoint_path, cache_directory, backend
@@ -83,71 +127,58 @@ if __name__ == "__main__":
         if this_experiment.checkpoint_exists():
             this_experiment.restore()
         else:
-            last_neptune_run = None
             this_experiment.reset(0)
 
-        run = neptune.init_run(
-            with_id=last_neptune_run,
-            project=neptune_project,
-            api_token=neptune_api_token,
-            capture_hardware_metrics=False,
-            capture_stderr=False,
-            capture_stdout=False,
-            capture_traceback=False,
-            flush_period=10.0,
+        write_logger.set_values(
+            {
+                f"hyperparameters/{key}": value
+                for key, value in hyperparameters._asdict().items()
+            }
         )
-        try:
-            with open(last_neptune_run_path, "w") as f:
-                f.write(run["sys/id"].fetch())
 
-            for key, value in hyperparameters._asdict().items():
-                run[f"hyperparameters/{key}"] = value
+        log_values = {}
+        log_images = {}
+        while True:
+            start_iteration = time.monotonic()
+            (
+                metrics,
+                log_values["profile/train_step_duration_ms"],
+            ) = measure_duration_ms(this_experiment.train_step)
+            log_values.update(
+                {f"metrics/{key}": value for key, value in metrics.items()}
+            )
 
-            profile = {}
-            while True:
-                profile.clear()
-                start_train_step = time.monotonic()
-                metrics = this_experiment.train_step()
-                end_train_step = time.monotonic()
-                train_step_duration = end_train_step - start_train_step
-                profile["train_step_duration_ms"] = train_step_duration * 1000.0
-                timestamp = time.time()
-                step = metrics.pop("step")
+            timestamp = time.time()
+            step: int = metrics.pop("step")
 
-                for key, value in metrics.items():
-                    run[f"metrics/{key}"].append(value, timestamp=timestamp, step=step)
-
-                if predict_interval and step % predict_interval == 0:
-                    start_predict = time.monotonic()
-                    image_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-                    predicted_images = this_experiment.predict(0, image_ids)
-                    predicted_images = np.reshape(
-                        np.round(np.asarray(predicted_images, dtype=np.float32)),
-                        (-1, 28, 28),
-                    ).astype(np.uint8)
-                    end_predict = time.monotonic()
-                    predict_duration = end_predict - start_predict
-                    profile["predict_duration_ms"] = predict_duration * 1000.0
-                    start_create_figures = time.monotonic()
-                    for image_id, predicted_image in zip(image_ids, predicted_images):
-                        image = PIL.Image.fromarray(predicted_image)
-                        run[f"train/distribution/{image_id}"].append(
-                            image,
-                            timestamp=timestamp,
-                            step=step,
+            if predict_interval and step % predict_interval == 0:
+                (
+                    predicted_images,
+                    log_values["profile/predict_duration_ms"],
+                ) = measure_duration_ms(
+                    predict_images, this_experiment, PREDICT_IMAGE_IDS
+                )
+                log_images.update(
+                    {
+                        f"train/predicted_images/{image_id}": image
+                        for image_id, image in zip(
+                            PREDICT_IMAGE_IDS, predicted_images, strict=True
                         )
-                    end_create_figures = time.monotonic()
-                    create_figures_duration = end_create_figures - start_create_figures
-                    profile["create_figures_duration_ms"] = (
-                        create_figures_duration * 1000.0
-                    )
+                    }
+                )
 
-                for key, value in profile.items():
-                    run[f"profile/{key}"].append(value, timestamp=timestamp, step=step)
+            write_logger.append_values(log_values, step, timestamp)
+            log_values.clear()
+            write_logger.append_images(log_images, step, timestamp)
+            log_images.clear()
+            end_iteration = time.monotonic()
+            iteration_duration_ms = (end_iteration - start_iteration) * 1000.0
+            print(f"Step {step} took {iteration_duration_ms:.2f}ms")
 
-        except KeyboardInterrupt:
-            print("Stopping...", flush=True)
-        finally:
-            run.stop()
+    except KeyboardInterrupt:
+        print("Stopping...", flush=True)
     finally:
-        this_experiment.close()
+        try:
+            this_experiment.close()
+        finally:
+            write_logger.close()

@@ -68,8 +68,8 @@ if __name__ == "__main__":
             )
             try:
                 hyperparameters = experiment.Hyperparameters(
-                    latent_dims=run["parameters/latent_dims"].fetch(),
-                    learning_rate=run["parameters/learning_rate"].fetch(),
+                    latent_dims=run["hyperparameters/latent_dims"].fetch(),
+                    learning_rate=run["hyperparameters/learning_rate"].fetch(),
                 )
             finally:
                 run.stop()
@@ -100,8 +100,6 @@ if __name__ == "__main__":
             with open(last_neptune_run_path, "w") as f:
                 f.write(run["sys/id"].fetch())
 
-            # TODO: I am undecided here because I would like to
-            run["parameters"] = hyperparameters._asdict()
             for key, value in hyperparameters._asdict().items():
                 run[f"hyperparameters/{key}"] = value
 

@@ -6,6 +6,7 @@ import time
 import logger
 import renderer
 
+
 T = TypeVar("T")
 
 
@@ -64,6 +65,7 @@ def get_last_hyperparameters_and_settings(
             learning_rate=read_logger.get_float("hyperparameters/learning_rate"),
         )
         settings = renderer.Settings(
+            learning_rate=read_logger.get_last_float("metrics/learning_rate"),
             beta=read_logger.get_last_float("metrics/beta"),
         )
     finally:
@@ -78,6 +80,7 @@ if __name__ == "__main__":
     import PIL.Image
     import shutil
     import platform
+    import math
 
     PREDICT_IMAGE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
@@ -125,7 +128,9 @@ if __name__ == "__main__":
         shutil.rmtree(experiment_directory, ignore_errors=True)
         last_neptune_run = None
         hyperparameters = experiment.Hyperparameters(latent_dims=16, learning_rate=1e-3)
-        settings = renderer.Settings(beta=0.5)
+        settings = renderer.Settings(
+            beta=0.5, learning_rate=hyperparameters.learning_rate
+        )
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
         hyperparameters, settings = get_last_hyperparameters_and_settings(
@@ -169,7 +174,24 @@ if __name__ == "__main__":
                     (
                         metrics,
                         log_values["profile/train_step_duration_ms"],
-                    ) = measure_duration_ms(this_experiment.train_step, settings.beta)
+                    ) = measure_duration_ms(
+                        this_experiment.train_step,
+                        settings.learning_rate,
+                        settings.beta,
+                    )
+
+                    for key, value in metrics.items():
+                        if not isinstance(value, (float, int)):
+                            raise TypeError(
+                                f"Expected float or int, got {type(value)} for key {key}"
+                            )
+                        elif math.isnan(value):
+                            raise ValueError(f"NaN for key {key}")
+                        elif math.isinf(value):
+                            raise ValueError(f"Inf for key {key}")
+                        elif not math.isfinite(value):
+                            raise ValueError(f"Non-finite for key {key}")
+
                     log_values.update(
                         {f"metrics/{key}": value for key, value in metrics.items()}
                     )

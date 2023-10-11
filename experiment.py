@@ -172,11 +172,25 @@ class Experiment:
             step=jnp.array(0, dtype=jnp.uint32),
         )
 
-    def train_step(self, beta: float) -> dict[str, any]:
+    def train_step(self, learning_rate: float, beta: float) -> dict[str, any]:
+        learning_rate = jnp.float32(learning_rate)
+        if learning_rate != self._state.optimizer_state.hyperparams["learning_rate"]:
+            self._optimizer = self._get_optimizer(learning_rate)
+            self._state = self._state._replace(
+                optimizer_state=self._optimizer.init(self._state.variables)
+            )
         self._state, metrics = self._train_step(self._state, beta)
         step = self._state.step.item()
         self._checkpoint_manager.save(step, self._state, metrics=metrics)
-        return {"step": step, **metrics}
+        return {
+            "step": step,
+            **jax.tree_map(
+                lambda x: jnp.finfo(metrics["learning_rate"].dtype).max.item()
+                if jnp.isinf(x)
+                else x.item(),
+                metrics,
+            ),
+        }
 
     def _train_step(self, state: State, beta: float) -> tuple[State, dict[str, any]]:
         new_key, key = jax.random.split(state.key)

@@ -14,44 +14,7 @@ class Renderer:
 
         self._root.iconphoto(False, tk.PhotoImage(file=icon_file_path))
         tk.Frame(self._root)
-
-        tk.Label(self._root, text="Learning Rate:", padx=5, pady=5).grid(
-            column=0, row=0
-        )
-
-        self._learning_rate_text = tk.StringVar(
-            self._root, value=str(self._settings.learning_rate)
-        )
-        self._learning_rate_input = tk.Spinbox(
-            self._root,
-            textvariable=self._learning_rate_text,
-            from_=0.0,
-            to=100.0,
-            # to=1.0,
-            increment=0.1,
-            validate="focusout",
-            validatecommand=self._validate_learning_rate,
-            command=self._learning_rate_callback,
-        )
-        self._learning_rate_text.set(str(self._settings.learning_rate))
-        self._learning_rate_input.grid(column=1, row=0)
-        self._learning_rate_input.bind("<FocusOut>", self._learning_rate_callback)
-
-        tk.Label(self._root, text="Beta:", padx=5, pady=5).grid(column=0, row=1)
-        self._beta_text = tk.StringVar(self._root, value=str(self._settings.beta))
-        self._beta_input = tk.Spinbox(
-            self._root,
-            textvariable=self._beta_text,
-            from_=0.0,
-            to=100.0,
-            increment=0.1,
-            validate="focusout",
-            validatecommand=self._validate_beta,
-            command=self._beta_callback,
-        )
-        self._beta_text.set(str(self._settings.beta))
-        self._beta_input.grid(column=1, row=1)
-        self._beta_input.bind("<FocusOut>", self._beta_callback)
+        self._add_hyperparameter_frame(0)
 
         self._root.protocol("WM_DELETE_WINDOW", self._set_window_closed)
 
@@ -63,6 +26,51 @@ class Renderer:
 
     def close(self):
         self._root.quit()
+
+    def _add_hyperparameter_frame(self, row: int) -> None:
+        hyperparameter_frame = tk.LabelFrame(self._root, text="Hyperparameters")
+        hyperparameter_frame.grid(row=row)
+
+        tk.Label(hyperparameter_frame, text="Learning Rate:", padx=5, pady=5).grid(
+            column=0, row=0
+        )
+
+        self._learning_rate_text = tk.StringVar(
+            hyperparameter_frame, value=str(self._settings.learning_rate)
+        )
+        self._learning_rate_input = tk.Spinbox(
+            hyperparameter_frame,
+            textvariable=self._learning_rate_text,
+            from_=0.0,
+            to=100.0,
+            increment=0.1,
+            validate="focusout",
+            validatecommand=self._validate_learning_rate,
+            command=self._learning_rate_callback,
+        )
+        self._learning_rate_text.set(str(self._settings.learning_rate))
+        self._learning_rate_input.grid(column=1, row=0)
+        self._learning_rate_input.bind("<FocusOut>", self._learning_rate_callback)
+
+        tk.Label(hyperparameter_frame, text="Beta:", padx=5, pady=5).grid(
+            column=0, row=1
+        )
+        self._beta_text = tk.StringVar(
+            hyperparameter_frame, value=str(self._settings.beta)
+        )
+        self._beta_input = tk.Spinbox(
+            hyperparameter_frame,
+            textvariable=self._beta_text,
+            from_=0.0,
+            to=100.0,
+            increment=0.1,
+            validate="focusout",
+            validatecommand=self._validate_beta,
+            command=self._beta_callback,
+        )
+        self._beta_text.set(str(self._settings.beta))
+        self._beta_input.grid(column=1, row=1)
+        self._beta_input.bind("<FocusOut>", self._beta_callback)
 
     def _beta_callback(self, event=None) -> None:
         value = self._beta_text.get().strip()

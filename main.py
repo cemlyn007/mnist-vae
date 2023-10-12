@@ -55,6 +55,7 @@ def get_hyperparameters(last_neptune_run: str) -> experiment.Hyperparameters:
 
 def get_last_hyperparameters_and_settings(
     last_neptune_run: str,
+    predict_interval: int,
 ) -> tuple[experiment.Hyperparameters, renderer.Settings]:
     read_logger = logger.Logger(
         neptune_project, neptune_api_token, last_neptune_run, read_only=True
@@ -67,6 +68,7 @@ def get_last_hyperparameters_and_settings(
         settings = renderer.Settings(
             learning_rate=read_logger.get_last_float("metrics/learning_rate"),
             beta=read_logger.get_last_float("metrics/beta"),
+            predict_interval=predict_interval,
         )
     finally:
         read_logger.close()
@@ -129,12 +131,15 @@ if __name__ == "__main__":
         last_neptune_run = None
         hyperparameters = experiment.Hyperparameters(latent_dims=16, learning_rate=1e-3)
         settings = renderer.Settings(
-            beta=0.5, learning_rate=hyperparameters.learning_rate
+            beta=0.5,
+            learning_rate=hyperparameters.learning_rate,
+            predict_interval=predict_interval,
         )
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
         hyperparameters, settings = get_last_hyperparameters_and_settings(
-            last_neptune_run
+            last_neptune_run,
+            predict_interval=predict_interval,
         )
 
     if not os.path.exists(experiment_directory):
@@ -199,7 +204,10 @@ if __name__ == "__main__":
                     timestamp = time.time()
                     step: int = metrics.pop("step")
 
-                    if predict_interval and step % predict_interval == 0:
+                    if (
+                        settings.predict_interval
+                        and step % settings.predict_interval == 0
+                    ):
                         (
                             predicted_images,
                             log_values["profile/predict_duration_ms"],

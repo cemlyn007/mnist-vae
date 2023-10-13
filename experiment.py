@@ -193,15 +193,8 @@ class Experiment:
         self._state, metrics = self._train_step(self._state, beta, batch_size)
         step = self._state.step.item()
         self._checkpoint_manager.save(step, self._state, metrics=metrics)
-        return {
-            "step": step,
-            **jax.tree_map(
-                lambda x: jnp.finfo(metrics["learning_rate"].dtype).max.item()
-                if jnp.isinf(x)
-                else x.item(),
-                metrics,
-            ),
-        }
+        metrics = {"step": step, **jax.tree_map(lambda x: x.item(), metrics)}
+        return metrics
 
     def _train_step(
         self, state: State, beta: float, batch_size: int

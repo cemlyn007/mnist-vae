@@ -132,7 +132,7 @@ if __name__ == "__main__":
     import math
 
     PREDICT_IMAGE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    TSNE_IMAGE_IDS = list(range(3072))
+    TSNE_IMAGE_IDS = list(range(2048))
 
     default_experiment_directory = os.path.join(os.getcwd(), "experiments")
     if platform.system() == "Darwin":

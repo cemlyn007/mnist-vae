@@ -189,7 +189,7 @@ if __name__ == "__main__":
             learning_rate=hyperparameters.learning_rate,
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
-            tsne_perplexity=30.0,
+            tsne_perplexity=tsne_perplexity,
             batch_size=batch_size,
         )
     else:

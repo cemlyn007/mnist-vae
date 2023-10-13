@@ -6,6 +6,7 @@ import sys
 class Settings(typing.NamedTuple):
     learning_rate: float
     beta: float
+    batch_size: int
     predict_interval: int
     tsne_interval: int
     tsne_perplexity: float
@@ -77,6 +78,26 @@ class Renderer:
         self._beta_input.grid(column=1, row=1, sticky="ew")
         self._beta_input.bind("<FocusOut>", self._beta_callback)
 
+        tk.Label(hyperparameter_frame, text="Batch Size:", anchor="w").grid(
+            column=0, row=2, sticky="ew"
+        )
+        self._batch_size_text = tk.StringVar(
+            hyperparameter_frame, value=str(self._settings.batch_size)
+        )
+        self._batch_size_input = tk.Spinbox(
+            hyperparameter_frame,
+            textvariable=self._batch_size_text,
+            from_=0,
+            to=sys.maxsize,
+            increment=1,
+            validate="focusout",
+            validatecommand=self._validate_batch_size,
+            command=self._batch_size_callback,
+        )
+        self._batch_size_text.set(str(self._settings.batch_size))
+        self._batch_size_input.grid(column=1, row=2, sticky="ew")
+        self._batch_size_input.bind("<FocusOut>", self._batch_size_callback)
+
     def _add_monitor_frame(self, row: int) -> None:
         frame = tk.LabelFrame(self._root, text="Monitor")
         frame.grid(row=row, sticky="ew")
@@ -146,6 +167,18 @@ class Renderer:
         value = self._beta_text.get().strip()
         try:
             float(value)
+            return True
+        except ValueError:
+            return False
+
+    def _batch_size_callback(self, event=None) -> None:
+        value = self._batch_size_text.get().strip()
+        self._settings = self._settings._replace(batch_size=int(value))
+
+    def _validate_batch_size(self) -> bool:
+        value = self._batch_size_text.get().strip()
+        try:
+            int(value)
             return True
         except ValueError:
             return False

@@ -75,6 +75,7 @@ def get_last_hyperparameters_and_settings(
         settings = renderer.Settings(
             learning_rate=read_logger.get_last_float("metrics/learning_rate"),
             beta=read_logger.get_last_float("metrics/beta"),
+            batch_size=read_logger.get_last_int("metrics/batch_size"),
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
         )
@@ -140,6 +141,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("MNIST VAE")
     parser.add_argument("--new_experiment", action="store_true")
     parser.add_argument("--backend", type=str, default=None)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--predict_interval", type=int, default=0, help="0 to disable")
     parser.add_argument("--tsne_interval", type=int, default=0, help="0 to disable")
     parser.add_argument("--tsne_perplexity", type=float, default=30.0)
@@ -164,6 +166,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     new_experiment: bool = args.new_experiment
     backend: str | None = args.backend
+    batch_size: int = args.batch_size
     predict_interval: int = args.predict_interval
     tsne_interval: int = args.tsne_interval
     tsne_perplexity: float = args.tsne_perplexity
@@ -187,6 +190,7 @@ if __name__ == "__main__":
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
             tsne_perplexity=30.0,
+            batch_size=batch_size,
         )
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
@@ -194,6 +198,7 @@ if __name__ == "__main__":
             last_neptune_run,
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
+            batch_size=batch_size,
         )
 
     if not os.path.exists(experiment_directory):
@@ -237,6 +242,7 @@ if __name__ == "__main__":
                         this_experiment.train_step,
                         settings.learning_rate,
                         settings.beta,
+                        settings.batch_size,
                     )
 
                     for key, value in metrics.items():

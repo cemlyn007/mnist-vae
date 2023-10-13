@@ -8,6 +8,7 @@ import optax
 import orbax.checkpoint as ocp
 import functools
 import operator
+import sys
 
 
 class Encoder(nn.Module):
@@ -70,8 +71,11 @@ class Experiment:
         self._encoder = self._get_encoder(hyperparameters.latent_dims)
         self._decoder = self._get_decoder()
         self._optimizer = self._get_optimizer(hyperparameters.learning_rate)
+        self._last_batch_size = sys.maxsize
 
-        self._train_step = jax.jit(self._train_step, device=self._device)
+        self._train_step = jax.jit(
+            self._train_step, static_argnames=("batch_size",), device=self._device
+        )
         self._predict = jax.jit(self._predict, device=self._device)
         self._encode = jax.jit(self._encode, device=self._device)
 
@@ -174,14 +178,19 @@ class Experiment:
             step=jnp.array(0, dtype=jnp.uint32),
         )
 
-    def train_step(self, learning_rate: float, beta: float) -> dict[str, any]:
+    def train_step(
+        self, learning_rate: float, beta: float, batch_size: int
+    ) -> dict[str, any]:
         learning_rate = jnp.float32(learning_rate)
         if learning_rate != self._state.optimizer_state.hyperparams["learning_rate"]:
             self._optimizer = self._get_optimizer(learning_rate)
             self._state = self._state._replace(
                 optimizer_state=self._optimizer.init(self._state.variables)
             )
-        self._state, metrics = self._train_step(self._state, beta)
+        if batch_size != self._last_batch_size:
+            self._train_step._clear_cache()
+            self._last_batch_size = batch_size
+        self._state, metrics = self._train_step(self._state, beta, batch_size)
         step = self._state.step.item()
         self._checkpoint_manager.save(step, self._state, metrics=metrics)
         return {
@@ -194,10 +203,12 @@ class Experiment:
             ),
         }
 
-    def _train_step(self, state: State, beta: float) -> tuple[State, dict[str, any]]:
+    def _train_step(
+        self, state: State, beta: float, batch_size: int
+    ) -> tuple[State, dict[str, any]]:
         new_key, key = jax.random.split(state.key)
         (loss, extras), grad = jax.value_and_grad(self._get_loss, has_aux=True)(
-            state.variables, key, beta
+            state.variables, key, beta, batch_size
         )
         updates, new_optimizer_state = self._optimizer.update(
             grad, state.optimizer_state
@@ -212,16 +223,23 @@ class Experiment:
         return next_state, {
             "loss": loss,
             "beta": beta,
+            "batch_size": batch_size,
             "learning_rate": new_optimizer_state.hyperparams["learning_rate"],
             **extras,
         }
 
     def _get_loss(
-        self, model_variables: ModelVariables, key: jax.random.PRNGKey, beta: float
+        self,
+        model_variables: ModelVariables,
+        key: jax.random.PRNGKey,
+        beta: float,
+        batch_size: int,
     ) -> tuple[jax.Array, dict[str, any]]:
         sample_key, key = jax.random.split(key)
         train_images = self._train_images[
-            jax.random.randint(sample_key, (8192,), 0, self._train_images.shape[0] + 1)
+            jax.random.randint(
+                sample_key, (batch_size,), 0, self._train_images.shape[0] + 1
+            )
         ]
         latent_mean, latent_log_variance = self._encoder.apply(
             model_variables.encoder, train_images

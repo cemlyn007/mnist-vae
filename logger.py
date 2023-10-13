@@ -29,6 +29,9 @@ class Logger:
     def get_float(self, key: str) -> float:
         return self._run[key].fetch()
 
+    def get_last_int(self, key: str) -> int:
+        return self._run[key].fetch_last()
+
     def get_last_float(self, key: str) -> float:
         return self._run[key].fetch_last()
 

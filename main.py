@@ -5,7 +5,14 @@ import experiment
 import time
 import logger
 import renderer
-
+import jax
+import tsne
+from matplotlib.backends import backend_agg
+import matplotlib.figure
+import matplotlib.cm
+import matplotlib.patches
+import jax.numpy as jnp
+import PIL.Image
 
 T = TypeVar("T")
 
@@ -69,22 +76,62 @@ def get_last_hyperparameters_and_settings(
             learning_rate=read_logger.get_last_float("metrics/learning_rate"),
             beta=read_logger.get_last_float("metrics/beta"),
             predict_interval=predict_interval,
+            tsne_interval=tsne_interval,
         )
     finally:
         read_logger.close()
     return hyperparameters, settings
 
 
+estimate_tsne = jax.jit(tsne.estimate_tsne)
+
+
+def get_tsne_plot(
+    latent_samples: jax.Array, labels: jax.Array, perplexity: float
+) -> PIL.Image.Image:
+    embeddings = estimate_tsne(
+        latent_samples,
+        jax.random.PRNGKey(0),
+        perplexity=perplexity,
+        iterations=1000,
+        learning_rate=10.0,
+        momentum=0.9,
+    )
+    color_map = matplotlib.cm.rainbow(np.linspace(0, 1, 10))
+    DPI = 200
+    fig = matplotlib.figure.Figure(figsize=(1080 / DPI, 1080 / DPI), dpi=DPI)
+    ax = fig.add_subplot(111)
+    ax.scatter(
+        embeddings[:, 0],
+        embeddings[:, 1],
+        c=color_map[labels],
+        alpha=0.1,
+    )
+    ax.set_aspect("equal")
+    ax.set_axis_off()
+    ax.legend(
+        handles=[
+            matplotlib.patches.Patch(color=c, label=str(i))
+            for i, c in enumerate(color_map)
+        ],
+        loc="upper right",
+    )
+    fig.tight_layout()
+    canvas = backend_agg.FigureCanvasAgg(fig)
+    image_bytes, size = canvas.print_to_buffer()
+    return PIL.Image.frombuffer("RGBA", size, image_bytes)
+
+
 if __name__ == "__main__":
     import os
     import numpy as np
     import argparse
-    import PIL.Image
     import shutil
     import platform
     import math
 
     PREDICT_IMAGE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    TSNE_IMAGE_IDS = list(range(3072))
 
     default_experiment_directory = os.path.join(os.getcwd(), "experiments")
     if platform.system() == "Darwin":
@@ -94,6 +141,8 @@ if __name__ == "__main__":
     parser.add_argument("--new_experiment", action="store_true")
     parser.add_argument("--backend", type=str, default=None)
     parser.add_argument("--predict_interval", type=int, default=0, help="0 to disable")
+    parser.add_argument("--tsne_interval", type=int, default=0, help="0 to disable")
+    parser.add_argument("--tsne_perplexity", type=float, default=30.0)
     parser.add_argument(
         "--experiment_directory",
         type=str,
@@ -116,6 +165,8 @@ if __name__ == "__main__":
     new_experiment: bool = args.new_experiment
     backend: str | None = args.backend
     predict_interval: int = args.predict_interval
+    tsne_interval: int = args.tsne_interval
+    tsne_perplexity: float = args.tsne_perplexity
     experiment_directory: str = args.experiment_directory
     neptune_project: str | None = args.neptune_project
     neptune_api_token: str | None = args.neptune_api_token
@@ -134,12 +185,15 @@ if __name__ == "__main__":
             beta=0.5,
             learning_rate=hyperparameters.learning_rate,
             predict_interval=predict_interval,
+            tsne_interval=tsne_interval,
+            tsne_perplexity=30.0,
         )
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
         hyperparameters, settings = get_last_hyperparameters_and_settings(
             last_neptune_run,
             predict_interval=predict_interval,
+            tsne_interval=tsne_interval,
         )
 
     if not os.path.exists(experiment_directory):
@@ -221,6 +275,26 @@ if __name__ == "__main__":
                                     PREDICT_IMAGE_IDS, predicted_images, strict=True
                                 )
                             }
+                        )
+
+                    if settings.tsne_interval and step % settings.tsne_interval == 0:
+                        labels = this_experiment.train_labels[jnp.array(TSNE_IMAGE_IDS)]
+                        (
+                            latent_samples,
+                            log_values["profile/encode_duration_ms"],
+                        ) = measure_duration_ms(
+                            this_experiment.encode,
+                            None,
+                            TSNE_IMAGE_IDS,
+                        )
+                        (
+                            log_images["train/embeddings"],
+                            log_values["profile/tsne_duration_ms"],
+                        ) = measure_duration_ms(
+                            get_tsne_plot,
+                            latent_samples,
+                            labels,
+                            settings.tsne_perplexity,
                         )
 
                     write_logger.append_values(log_values, step, timestamp)

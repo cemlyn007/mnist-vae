@@ -66,13 +66,14 @@ class Experiment:
     ) -> None:
         self._device = jax.devices(backend)[0]
         self._checkpoint_manager = self._get_checkpoint_manager(checkpoint_directory)
-        self._train_images = self._get_train_images(cache_directory)
+        self._train_images, self.train_labels = self._get_training_data(cache_directory)
         self._encoder = self._get_encoder(hyperparameters.latent_dims)
         self._decoder = self._get_decoder()
         self._optimizer = self._get_optimizer(hyperparameters.learning_rate)
 
         self._train_step = jax.jit(self._train_step, device=self._device)
         self._predict = jax.jit(self._predict, device=self._device)
+        self._encode = jax.jit(self._encode, device=self._device)
 
     def reset(self, key: int) -> None:
         if self._checkpoint_manager.directory.exists():
@@ -116,7 +117,7 @@ class Experiment:
         )
         return checkpoint_manager
 
-    def _get_train_images(self, cache_directory: str) -> jax.Array:
+    def _get_training_data(self, cache_directory: str) -> tuple[jax.Array, jax.Array]:
         dataset = mnist.Dataset(cache_directory)
         dataset.download()
         train_images = dataset.load_train_images(self._device)
@@ -127,7 +128,8 @@ class Experiment:
                 functools.reduce(operator.mul, train_images.shape[1:], 1),
             )
         )
-        return train_images
+        train_labels = dataset.load_train_labels(self._device)
+        return train_images, train_labels
 
     def _get_encoder(self, latent_dims: int) -> Encoder:
         return Encoder(latent_dims=latent_dims)
@@ -248,6 +250,28 @@ class Experiment:
     def predict(self, key: int, image_indices: list[int]) -> jax.Array:
         key = jax.random.PRNGKey(key)
         return self._predict(self._state.variables, key, image_indices)
+
+    def encode(self, key: int | None, image_indices: list[int]) -> jax.Array:
+        return self._encode(self._state.variables, key, image_indices)
+
+    def _encode(
+        self,
+        model_variables: ModelVariables,
+        key: jax.random.KeyArray | None,
+        image_indices: list[int],
+    ) -> jax.Array:
+        train_images = self._train_images[jnp.array(image_indices)]
+        latent_mean, latent_log_variance = self._encoder.apply(
+            model_variables.encoder, train_images
+        )
+        if key is None:
+            sampled_latent = latent_mean
+        else:
+            key = jax.random.PRNGKey(key)
+            sampled_latent = latent_mean + jnp.exp(
+                latent_log_variance * 0.5
+            ) * jax.random.normal(key, latent_log_variance.shape)
+        return sampled_latent
 
     def _predict(
         self,

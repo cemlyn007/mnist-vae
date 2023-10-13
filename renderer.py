@@ -10,6 +10,7 @@ class Settings(typing.NamedTuple):
     predict_interval: int
     tsne_interval: int
     tsne_perplexity: float
+    tsne_iterations: int
 
 
 class Renderer:
@@ -157,6 +158,25 @@ class Renderer:
         )
         self._tsne_perplexity_text.set(str(self._settings.tsne_perplexity))
         self._tsne_perplexity_input.grid(column=1, row=2, sticky="ew")
+        self._tsne_perplexity_input.bind("<FocusOut>", self._tsne_perplexity_callback)
+
+        tk.Label(frame, text="t-SNE Iterations:").grid(column=0, row=3, sticky="w")
+
+        self._tsne_interval_text = tk.StringVar(
+            frame, value=str(self._settings.tsne_interval)
+        )
+        self._tsne_interval_input = tk.Spinbox(
+            frame,
+            textvariable=self._tsne_interval_text,
+            from_=1,
+            to_=sys.maxsize,
+            increment=1,
+            validate="focusout",
+            validatecommand=self._validate_tsne_interval,
+            command=self._tsne_interval_callback,
+        )
+        self._tsne_interval_text.set(str(self._settings.tsne_interval))
+        self._tsne_interval_input.grid(column=1, row=3, sticky="ew")
         self._tsne_interval_input.bind("<FocusOut>", self._tsne_interval_callback)
 
     def _beta_callback(self, event=None) -> None:
@@ -227,6 +247,18 @@ class Renderer:
         value = self._tsne_perplexity_text.get().strip()
         try:
             float(value)
+            return True
+        except ValueError:
+            return False
+
+    def _tsne_interval_callback(self, event=None) -> None:
+        value = self._tsne_interval_text.get().strip()
+        self._settings = self._settings._replace(tsne_interval=int(value))
+
+    def _validate_tsne_interval(self) -> bool:
+        value = self._tsne_interval_text.get().strip()
+        try:
+            int(value)
             return True
         except ValueError:
             return False

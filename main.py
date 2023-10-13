@@ -63,6 +63,8 @@ def get_hyperparameters(last_neptune_run: str) -> experiment.Hyperparameters:
 def get_last_hyperparameters_and_settings(
     last_neptune_run: str,
     predict_interval: int,
+    tsne_interval: int,
+    tsne_iterations: int,
 ) -> tuple[experiment.Hyperparameters, renderer.Settings]:
     read_logger = logger.Logger(
         neptune_project, neptune_api_token, last_neptune_run, read_only=True
@@ -78,6 +80,7 @@ def get_last_hyperparameters_and_settings(
             batch_size=read_logger.get_last_int("metrics/batch_size"),
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
+            tsne_iterations=tsne_iterations,
         )
     finally:
         read_logger.close()
@@ -88,13 +91,13 @@ estimate_tsne = jax.jit(tsne.estimate_tsne)
 
 
 def get_tsne_plot(
-    latent_samples: jax.Array, labels: jax.Array, perplexity: float
+    latent_samples: jax.Array, labels: jax.Array, perplexity: float, iterations: int
 ) -> PIL.Image.Image:
     embeddings = estimate_tsne(
         latent_samples,
         jax.random.PRNGKey(0),
         perplexity=perplexity,
-        iterations=1000,
+        iterations=iterations,
         learning_rate=10.0,
         momentum=0.9,
     )
@@ -145,6 +148,7 @@ if __name__ == "__main__":
     parser.add_argument("--predict_interval", type=int, default=0, help="0 to disable")
     parser.add_argument("--tsne_interval", type=int, default=0, help="0 to disable")
     parser.add_argument("--tsne_perplexity", type=float, default=30.0)
+    parser.add_argument("--tsne_iterations", type=int, default=1000)
     parser.add_argument(
         "--experiment_directory",
         type=str,
@@ -170,6 +174,7 @@ if __name__ == "__main__":
     predict_interval: int = args.predict_interval
     tsne_interval: int = args.tsne_interval
     tsne_perplexity: float = args.tsne_perplexity
+    tsne_iterations: int = args.tsne_iterations
     experiment_directory: str = args.experiment_directory
     neptune_project: str | None = args.neptune_project
     neptune_api_token: str | None = args.neptune_api_token
@@ -190,6 +195,7 @@ if __name__ == "__main__":
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
             tsne_perplexity=tsne_perplexity,
+            tsne_iterations=tsne_iterations,
             batch_size=batch_size,
         )
     else:
@@ -198,6 +204,7 @@ if __name__ == "__main__":
             last_neptune_run,
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
+            tsne_iterations=tsne_iterations,
             batch_size=batch_size,
         )
 
@@ -301,6 +308,7 @@ if __name__ == "__main__":
                             latent_samples,
                             labels,
                             settings.tsne_perplexity,
+                            settings.tsne_iterations,
                         )
 
                     write_logger.append_values(log_values, step, timestamp)

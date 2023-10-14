@@ -12,7 +12,6 @@ import matplotlib.figure
 import matplotlib.cm
 import matplotlib.patches
 import jax.numpy as jnp
-import PIL.Image
 
 T = TypeVar("T")
 

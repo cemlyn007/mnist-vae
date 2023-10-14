@@ -164,22 +164,22 @@ class Renderer:
 
         tk.Label(frame, text="t-SNE Iterations:").grid(column=0, row=3, sticky="w")
 
-        self._tsne_interval_text = tk.StringVar(
-            frame, value=str(self._settings.tsne_interval)
+        self._tsne_iterations_text = tk.StringVar(
+            frame, value=str(self._settings.tsne_iterations)
         )
-        self._tsne_interval_input = tk.Spinbox(
+        self._tsne_iterations_input = tk.Spinbox(
             frame,
-            textvariable=self._tsne_interval_text,
+            textvariable=self._tsne_iterations_text,
             from_=1,
             to_=sys.maxsize,
             increment=1,
             validate="focusout",
-            validatecommand=self._validate_tsne_interval,
-            command=self._tsne_interval_callback,
+            validatecommand=self._validate_tsne_iterations,
+            command=self._tsne_iterations_callback,
         )
-        self._tsne_interval_text.set(str(self._settings.tsne_interval))
-        self._tsne_interval_input.grid(column=1, row=3, sticky="ew")
-        self._tsne_interval_input.bind("<FocusOut>", self._tsne_interval_callback)
+        self._tsne_iterations_text.set(str(self._settings.tsne_iterations))
+        self._tsne_iterations_input.grid(column=1, row=3, sticky="ew")
+        self._tsne_iterations_input.bind("<FocusOut>", self._tsne_iterations_callback)
 
         tk.Label(frame, text="Checkpoint Interval:").grid(column=0, row=4, sticky="w")
 
@@ -299,12 +299,12 @@ class Renderer:
         except ValueError:
             return False
 
-    def _tsne_interval_callback(self, event=None) -> None:
-        value = self._tsne_interval_text.get().strip()
-        self._settings = self._settings._replace(tsne_interval=int(value))
+    def _tsne_iterations_callback(self, event=None) -> None:
+        value = self._tsne_iterations_text.get().strip()
+        self._settings = self._settings._replace(tsne_iterations=int(value))
 
-    def _validate_tsne_interval(self) -> bool:
-        value = self._tsne_interval_text.get().strip()
+    def _validate_tsne_iterations(self) -> bool:
+        value = self._tsne_iterations_text.get().strip()
         try:
             int(value)
             return True

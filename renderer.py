@@ -172,7 +172,7 @@ class Renderer:
             textvariable=self._tsne_iterations_text,
             from_=1,
             to_=sys.maxsize,
-            increment=1,
+            increment=50,
             validate="focusout",
             validatecommand=self._validate_tsne_iterations,
             command=self._tsne_iterations_callback,

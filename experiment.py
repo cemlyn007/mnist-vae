@@ -70,7 +70,7 @@ class Experiment:
         self._checkpoint_manager = self._get_checkpoint_manager(
             self._checkpoint_directory, 0, 0
         )
-        self._train_images, self.train_labels = self._get_training_data(cache_directory)
+        self.train_images, self.train_labels = self._get_training_data(cache_directory)
         self._encoder = self._get_encoder(hyperparameters.latent_dims)
         self._decoder = self._get_decoder()
         self._optimizer = self._get_optimizer(hyperparameters.learning_rate)
@@ -259,9 +259,9 @@ class Experiment:
         batch_size: int,
     ) -> tuple[jax.Array, dict[str, any]]:
         sample_key, key = jax.random.split(key)
-        train_images = self._train_images[
+        train_images = self.train_images[
             jax.random.randint(
-                sample_key, (batch_size,), 0, self._train_images.shape[0] + 1
+                sample_key, (batch_size,), 0, self.train_images.shape[0] + 1
             )
         ]
         latent_mean, latent_log_variance = self._encoder.apply(
@@ -288,22 +288,21 @@ class Experiment:
             "kl_divergence": kl_divergence,
         }
 
-    def predict(self, key: int, image_indices: list[int]) -> jax.Array:
+    def encode_decode(self, key: int, image_indices: list[int]) -> jax.Array:
         key = jax.random.PRNGKey(key)
         return self._predict(self._state.variables, key, image_indices)
 
-    def encode(self, key: int | None, image_indices: list[int]) -> jax.Array:
-        return self._encode(self._state.variables, key, image_indices)
+    def encode(self, key: int | None, images: jax.Array) -> jax.Array:
+        return self._encode(self._state.variables, key, images)
 
     def _encode(
         self,
         model_variables: ModelVariables,
         key: jax.random.KeyArray | None,
-        image_indices: list[int],
+        images: jax.Array,
     ) -> jax.Array:
-        train_images = self._train_images[jnp.array(image_indices)]
         latent_mean, latent_log_variance = self._encoder.apply(
-            model_variables.encoder, train_images
+            model_variables.encoder, images
         )
         if key is None:
             sampled_latent = latent_mean
@@ -318,11 +317,10 @@ class Experiment:
         self,
         model_variables: ModelVariables,
         key: jax.random.PRNGKey,
-        image_indices: list[int],
+        images: jax.Array,
     ) -> jax.Array:
-        image_indices = jnp.array(image_indices)
         latent_mean, latent_log_variance = self._encoder.apply(
-            model_variables.encoder, self._train_images[image_indices]
+            model_variables.encoder, images
         )
         sampled_latent = latent_mean + jnp.exp(
             latent_log_variance * 0.5

@@ -12,6 +12,7 @@ import matplotlib.figure
 import matplotlib.cm
 import matplotlib.patches
 import jax.numpy as jnp
+import sys
 
 T = TypeVar("T")
 
@@ -24,10 +25,10 @@ def measure_duration_ms(func: Callable[..., T], *args, **kwargs) -> tuple[T, flo
     return result, elapsed_time * 1000.0
 
 
-def predict_images(
-    this_experiment: experiment.Experiment, image_ids: list[int]
+def encode_decode_images(
+    this_experiment: experiment.Experiment, images: jax.Array
 ) -> list[PIL.Image.Image]:
-    images = this_experiment.predict(0, image_ids)
+    images = this_experiment.encode_decode(0, images)
     images = np.reshape(
         np.round(np.asarray(images, dtype=np.float32)),
         (-1, 28, 28),
@@ -133,6 +134,21 @@ def get_tsne_plot(
     return PIL.Image.frombuffer("RGBA", size, image_bytes)
 
 
+def get_some_images(
+    images: jax.Array, labels: jax.Array, images_per_digit: int
+) -> tuple[jax.Array, jax.Array]:
+    flattened_images = []
+    flattened_labels = []
+    for i in range(10):
+        indices = jnp.argwhere(labels == i, size=images_per_digit).flatten()
+        flattened_images.append(images[indices])
+        flattened_labels.append(labels[indices])
+
+    flattened_images = jnp.concatenate(flattened_images, axis=0)
+    flattened_labels = jnp.concatenate(flattened_labels, axis=0)
+    return flattened_images, flattened_labels
+
+
 if __name__ == "__main__":
     import os
     import numpy as np
@@ -141,8 +157,11 @@ if __name__ == "__main__":
     import platform
     import math
 
-    PREDICT_IMAGE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    TSNE_IMAGE_IDS = list(range(3072))
+    get_some_images = jax.jit(
+        get_some_images,
+        static_argnames=("images_per_digit",),
+        backend="cpu" if sys.platform == "darwin" else None,
+    )
 
     default_experiment_directory = os.path.join(os.getcwd(), "experiments")
     if platform.system() == "Darwin":
@@ -259,6 +278,16 @@ if __name__ == "__main__":
                     hyperparameters, checkpoint_path, cache_directory, backend
                 )
                 try:
+                    (
+                        images_to_encode_decode,
+                        _,
+                    ) = get_some_images(
+                        this_experiment.train_images, this_experiment.train_labels, 1
+                    )
+                    tsne_images, tsne_labels = get_some_images(
+                        this_experiment.train_images, this_experiment.train_labels, 256
+                    )
+
                     if this_experiment.checkpoint_exists():
                         this_experiment.restore()
                     else:
@@ -329,15 +358,15 @@ if __name__ == "__main__":
                                     predicted_images,
                                     log_values["profile/predict_duration_ms"],
                                 ) = measure_duration_ms(
-                                    predict_images, this_experiment, PREDICT_IMAGE_IDS
+                                    encode_decode_images,
+                                    this_experiment,
+                                    images_to_encode_decode,
                                 )
                                 log_images.update(
                                     {
-                                        f"train/predicted_images/{image_id}": image
-                                        for image_id, image in zip(
-                                            PREDICT_IMAGE_IDS,
-                                            predicted_images,
-                                            strict=True,
+                                        f"train/predicted_images/{digit_id}": image
+                                        for digit_id, image in enumerate(
+                                            predicted_images
                                         )
                                     }
                                 )
@@ -346,16 +375,13 @@ if __name__ == "__main__":
                                 settings.tsne_interval
                                 and step % settings.tsne_interval == 0
                             ):
-                                labels = this_experiment.train_labels[
-                                    jnp.array(TSNE_IMAGE_IDS)
-                                ]
                                 (
                                     latent_samples,
                                     log_values["profile/encode_duration_ms"],
                                 ) = measure_duration_ms(
                                     this_experiment.encode,
                                     None,
-                                    TSNE_IMAGE_IDS,
+                                    tsne_images,
                                 )
                                 (
                                     log_images["train/embeddings"],
@@ -363,7 +389,7 @@ if __name__ == "__main__":
                                 ) = measure_duration_ms(
                                     get_tsne_plot,
                                     latent_samples,
-                                    labels,
+                                    tsne_labels,
                                     settings.tsne_perplexity,
                                     settings.tsne_iterations,
                                 )

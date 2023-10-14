@@ -87,6 +87,7 @@ def get_last_hyperparameters_and_settings(
             tsne_iterations=tsne_iterations,
             checkpoint_interval=checkpoint_interval,
             checkpoint_max_to_keep=checkpoint_max_to_keep,
+            state=renderer.State.PAUSED,
         )
     finally:
         read_logger.close()
@@ -214,6 +215,7 @@ if __name__ == "__main__":
             latent_dims=latent_size, learning_rate=1e-3
         )
         settings = renderer.Settings(
+            latent_size=latent_size,
             beta=0.5,
             learning_rate=hyperparameters.learning_rate,
             predict_interval=predict_interval,
@@ -223,6 +225,7 @@ if __name__ == "__main__":
             batch_size=batch_size,
             checkpoint_interval=checkpoint_save_interval,
             checkpoint_max_to_keep=checkpoint_max_to_keep,
+            state=renderer.State.NEW,
         )
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
@@ -241,128 +244,149 @@ if __name__ == "__main__":
 
     view = renderer.Renderer(settings, os.path.join(os.getcwd(), "assets", "icon.png"))
     try:
-        write_logger = logger.Logger(
-            neptune_project, neptune_api_token, last_neptune_run, flush_period=1.0
-        )
-        try:
-            if new_experiment:
-                cache_neptune_run_id(last_neptune_run_path, write_logger.run_id)
-
-            this_experiment = experiment.Experiment(
-                hyperparameters, checkpoint_path, cache_directory, backend
+        while view.open and settings.state != renderer.State.RUNNING:
+            settings = view.update()
+            time.sleep(1.0 / 30.0)
+        if view.open:
+            write_logger = logger.Logger(
+                neptune_project, neptune_api_token, last_neptune_run, flush_period=1.0
             )
             try:
-                if this_experiment.checkpoint_exists():
-                    this_experiment.restore()
-                else:
-                    this_experiment.reset(0)
+                if new_experiment:
+                    cache_neptune_run_id(last_neptune_run_path, write_logger.run_id)
 
-                write_logger.set_values(
-                    {
-                        f"hyperparameters/{key}": value
-                        for key, value in hyperparameters._asdict().items()
-                    }
+                this_experiment = experiment.Experiment(
+                    hyperparameters, checkpoint_path, cache_directory, backend
                 )
+                try:
+                    if this_experiment.checkpoint_exists():
+                        this_experiment.restore()
+                    else:
+                        this_experiment.reset(0)
 
-                log_values = {}
-                log_images = {}
-                while view.open:
-                    start_iteration = time.monotonic()
-                    settings = view.update()
-
-                    if (
-                        settings.checkpoint_interval
-                        != this_experiment.checkpoint_interval
-                        or settings.checkpoint_max_to_keep
-                        != this_experiment.checkpoint_max_to_keep
-                    ):
-                        this_experiment.update_checkpoint_manager(
-                            settings.checkpoint_interval,
-                            settings.checkpoint_max_to_keep,
-                        )
-
-                    (
-                        metrics,
-                        log_values["profile/train_step_duration_ms"],
-                    ) = measure_duration_ms(
-                        this_experiment.train_step,
-                        settings.learning_rate,
-                        settings.beta,
-                        settings.batch_size,
+                    write_logger.set_values(
+                        {
+                            f"hyperparameters/{key}": value
+                            for key, value in hyperparameters._asdict().items()
+                        }
                     )
 
-                    for key, value in metrics.items():
-                        if not isinstance(value, (float, int)):
-                            raise TypeError(
-                                f"Expected float or int, got {type(value)} for key {key}"
-                            )
-                        elif math.isnan(value):
-                            raise ValueError(f"NaN for key {key}")
-                        elif math.isinf(value):
-                            raise ValueError(f"Inf for key {key}")
-                        elif not math.isfinite(value):
-                            raise ValueError(f"Non-finite for key {key}")
+                    log_values = {}
+                    log_images = {}
+                    while view.open:
+                        start_iteration = time.monotonic()
+                        settings = view.update()
 
-                    log_values.update(
-                        {f"metrics/{key}": value for key, value in metrics.items()}
-                    )
-
-                    timestamp = time.time()
-                    step: int = metrics.pop("step")
-
-                    if (
-                        settings.predict_interval
-                        and step % settings.predict_interval == 0
-                    ):
-                        (
-                            predicted_images,
-                            log_values["profile/predict_duration_ms"],
-                        ) = measure_duration_ms(
-                            predict_images, this_experiment, PREDICT_IMAGE_IDS
-                        )
-                        log_images.update(
-                            {
-                                f"train/predicted_images/{image_id}": image
-                                for image_id, image in zip(
-                                    PREDICT_IMAGE_IDS, predicted_images, strict=True
+                        if settings.state == renderer.State.RUNNING:
+                            if (
+                                settings.checkpoint_interval
+                                != this_experiment.checkpoint_interval
+                                or settings.checkpoint_max_to_keep
+                                != this_experiment.checkpoint_max_to_keep
+                            ):
+                                this_experiment.update_checkpoint_manager(
+                                    settings.checkpoint_interval,
+                                    settings.checkpoint_max_to_keep,
                                 )
-                            }
+
+                            (
+                                metrics,
+                                log_values["profile/train_step_duration_ms"],
+                            ) = measure_duration_ms(
+                                this_experiment.train_step,
+                                settings.learning_rate,
+                                settings.beta,
+                                settings.batch_size,
+                            )
+
+                            for key, value in metrics.items():
+                                if not isinstance(value, (float, int)):
+                                    raise TypeError(
+                                        f"Expected float or int, got {type(value)} for key {key}"
+                                    )
+                                elif math.isnan(value):
+                                    raise ValueError(f"NaN for key {key}")
+                                elif math.isinf(value):
+                                    raise ValueError(f"Inf for key {key}")
+                                elif not math.isfinite(value):
+                                    raise ValueError(f"Non-finite for key {key}")
+
+                            log_values.update(
+                                {
+                                    f"metrics/{key}": value
+                                    for key, value in metrics.items()
+                                }
+                            )
+
+                            timestamp = time.time()
+                            step: int = metrics.pop("step")
+
+                            if (
+                                settings.predict_interval
+                                and step % settings.predict_interval == 0
+                            ):
+                                (
+                                    predicted_images,
+                                    log_values["profile/predict_duration_ms"],
+                                ) = measure_duration_ms(
+                                    predict_images, this_experiment, PREDICT_IMAGE_IDS
+                                )
+                                log_images.update(
+                                    {
+                                        f"train/predicted_images/{image_id}": image
+                                        for image_id, image in zip(
+                                            PREDICT_IMAGE_IDS,
+                                            predicted_images,
+                                            strict=True,
+                                        )
+                                    }
+                                )
+
+                            if (
+                                settings.tsne_interval
+                                and step % settings.tsne_interval == 0
+                            ):
+                                labels = this_experiment.train_labels[
+                                    jnp.array(TSNE_IMAGE_IDS)
+                                ]
+                                (
+                                    latent_samples,
+                                    log_values["profile/encode_duration_ms"],
+                                ) = measure_duration_ms(
+                                    this_experiment.encode,
+                                    None,
+                                    TSNE_IMAGE_IDS,
+                                )
+                                (
+                                    log_images["train/embeddings"],
+                                    log_values["profile/tsne_duration_ms"],
+                                ) = measure_duration_ms(
+                                    get_tsne_plot,
+                                    latent_samples,
+                                    labels,
+                                    settings.tsne_perplexity,
+                                    settings.tsne_iterations,
+                                )
+
+                            write_logger.append_values(log_values, step, timestamp)
+                            log_values.clear()
+                            write_logger.append_images(log_images, step, timestamp)
+                            log_images.clear()
+                        elif settings.state == renderer.State.PAUSED:
+                            time.sleep(1.0 / 30.0)
+                        end_iteration = time.monotonic()
+                        iteration_duration_ms = (
+                            end_iteration - start_iteration
+                        ) * 1000.0
+                        print(
+                            f"Step {step} with state {settings.state} took {iteration_duration_ms:.2f}ms"
                         )
 
-                    if settings.tsne_interval and step % settings.tsne_interval == 0:
-                        labels = this_experiment.train_labels[jnp.array(TSNE_IMAGE_IDS)]
-                        (
-                            latent_samples,
-                            log_values["profile/encode_duration_ms"],
-                        ) = measure_duration_ms(
-                            this_experiment.encode,
-                            None,
-                            TSNE_IMAGE_IDS,
-                        )
-                        (
-                            log_images["train/embeddings"],
-                            log_values["profile/tsne_duration_ms"],
-                        ) = measure_duration_ms(
-                            get_tsne_plot,
-                            latent_samples,
-                            labels,
-                            settings.tsne_perplexity,
-                            settings.tsne_iterations,
-                        )
-
-                    write_logger.append_values(log_values, step, timestamp)
-                    log_values.clear()
-                    write_logger.append_images(log_images, step, timestamp)
-                    log_images.clear()
-                    end_iteration = time.monotonic()
-                    iteration_duration_ms = (end_iteration - start_iteration) * 1000.0
-                    print(f"Step {step} took {iteration_duration_ms:.2f}ms")
-
-            except KeyboardInterrupt:
-                print("Stopping...", flush=True)
+                except KeyboardInterrupt:
+                    print("Stopping...", flush=True)
+                finally:
+                    this_experiment.close()
             finally:
-                this_experiment.close()
-        finally:
-            write_logger.close()
+                write_logger.close()
     finally:
         view.close()

@@ -1,6 +1,13 @@
 import tkinter as tk
 import typing
 import sys
+import enum
+
+
+class State(enum.Enum):
+    NEW = 0
+    RUNNING = 1
+    PAUSED = 2
 
 
 class Settings(typing.NamedTuple):
@@ -14,6 +21,7 @@ class Settings(typing.NamedTuple):
     tsne_iterations: int
     checkpoint_interval: int
     checkpoint_max_to_keep: int
+    state: State
 
 
 class Renderer:
@@ -25,6 +33,7 @@ class Renderer:
         tk.Frame(self._root)
         self._add_hyperparameter_frame(0)
         self._add_monitor_frame(1)
+        self._add_runtime_frame(2)
 
         self._root.protocol("WM_DELETE_WINDOW", self._set_window_closed)
 
@@ -57,7 +66,7 @@ class Renderer:
             validate="focusout",
             validatecommand=self._validate_latent_size,
             command=self._latent_size_callback,
-            state="disabled",
+            state="disabled" if self._settings.state != State.NEW else "normal",
         )
         self._latent_size_text.set(str(self._settings.latent_size))
         self._latent_size_input.grid(column=1, row=0, sticky="ew")
@@ -250,6 +259,15 @@ class Renderer:
             "<FocusOut>", self._checkpoint_max_to_keep_callback
         )
 
+    def _add_runtime_frame(self, row: int) -> None:
+        frame = tk.LabelFrame(self._root, text="Runtime")
+        frame.grid(row=row, sticky="ew")
+
+        self._state_button = tk.Button(
+            frame, text="Start", command=self._start_callback
+        )
+        self._state_button.grid(column=0, row=0, sticky="ew")
+
     def _latent_size_callback(self, event=None) -> None:
         value = self._latent_size_text.get().strip()
         self._settings = self._settings._replace(latent_size=int(value))
@@ -369,6 +387,20 @@ class Renderer:
             return True
         except ValueError:
             return False
+
+    def _start_callback(self, event=None) -> None:
+        if self._settings.state == State.NEW:
+            self._latent_size_input.configure(state="disabled")
+            self._state_button.config(text="Pause")
+            self._settings = self._settings._replace(state=State.RUNNING)
+        elif self._settings.state == State.PAUSED:
+            self._state_button.config(text="Pause")
+            self._settings = self._settings._replace(state=State.RUNNING)
+        elif self._settings.state == State.RUNNING:
+            self._state_button.config(text="Resume")
+            self._settings = self._settings._replace(state=State.PAUSED)
+        else:
+            raise ValueError("Invalid state")
 
     def _set_window_closed(self) -> None:
         self.open = False

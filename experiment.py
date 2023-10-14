@@ -66,7 +66,10 @@ class Experiment:
         backend: str | None = None,
     ) -> None:
         self._device = jax.devices(backend)[0]
-        self._checkpoint_manager = self._get_checkpoint_manager(checkpoint_directory)
+        self._checkpoint_directory = checkpoint_directory
+        self._checkpoint_manager = self._get_checkpoint_manager(
+            self._checkpoint_directory, 0, 0
+        )
         self._train_images, self.train_labels = self._get_training_data(cache_directory)
         self._encoder = self._get_encoder(hyperparameters.latent_dims)
         self._decoder = self._get_decoder()
@@ -113,13 +116,37 @@ class Experiment:
         return self._checkpoint_manager.latest_step() is not None
 
     def _get_checkpoint_manager(
-        self, checkpoint_directory: str
+        self,
+        checkpoint_directory: str,
+        save_interval_steps: int,
+        max_to_keep: int,
     ) -> ocp.CheckpointManager:
-        options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=100)
+        options = ocp.CheckpointManagerOptions(
+            max_to_keep=max_to_keep if max_to_keep else None,
+            save_interval_steps=save_interval_steps,
+        )
         checkpoint_manager = ocp.CheckpointManager(
             checkpoint_directory, ocp.PyTreeCheckpointer(), options=options
         )
+        self._checkpoint_max_to_keep = max_to_keep
+        self._checkpoint_interval = save_interval_steps
         return checkpoint_manager
+
+    @property
+    def checkpoint_max_to_keep(self) -> int:
+        return self._checkpoint_max_to_keep
+
+    @property
+    def checkpoint_interval(self) -> int:
+        return self._checkpoint_interval
+
+    def update_checkpoint_manager(
+        self, save_interval_steps: int, max_to_keep: int
+    ) -> None:
+        self._checkpoint_manager.close()
+        self._checkpoint_manager = self._get_checkpoint_manager(
+            self._checkpoint_directory, max_to_keep, save_interval_steps
+        )
 
     def _get_training_data(self, cache_directory: str) -> tuple[jax.Array, jax.Array]:
         dataset = mnist.Dataset(cache_directory)
@@ -192,7 +219,10 @@ class Experiment:
             self._last_batch_size = batch_size
         self._state, metrics = self._train_step(self._state, beta, batch_size)
         step = self._state.step.item()
-        self._checkpoint_manager.save(step, self._state, metrics=metrics)
+        if self.checkpoint_interval and (
+            self.checkpoint_max_to_keep is None or self.checkpoint_max_to_keep
+        ):
+            self._checkpoint_manager.save(step, self._state, metrics=metrics)
         metrics = {"step": step, **jax.tree_map(lambda x: x.item(), metrics)}
         return metrics
 

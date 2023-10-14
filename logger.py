@@ -30,7 +30,11 @@ class Logger:
         return self._run[key].fetch()
 
     def get_last_int(self, key: str) -> int:
-        return self._run[key].fetch_last()
+        value = self._run[key].fetch_last()
+        if not value.is_integer():
+            raise ValueError(f"Value {value} is not an integer")
+        # else...
+        return int(value)
 
     def get_last_float(self, key: str) -> float:
         return self._run[key].fetch_last()

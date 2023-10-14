@@ -11,6 +11,8 @@ class Settings(typing.NamedTuple):
     tsne_interval: int
     tsne_perplexity: float
     tsne_iterations: int
+    checkpoint_interval: int
+    checkpoint_max_to_keep: int
 
 
 class Renderer:
@@ -179,6 +181,52 @@ class Renderer:
         self._tsne_interval_input.grid(column=1, row=3, sticky="ew")
         self._tsne_interval_input.bind("<FocusOut>", self._tsne_interval_callback)
 
+        tk.Label(frame, text="Checkpoint Interval:").grid(column=0, row=4, sticky="w")
+
+        self._checkpoint_interval_text = tk.StringVar(
+            frame, value=str(self._settings.checkpoint_interval)
+        )
+        self._checkpoint_interval_input = tk.Spinbox(
+            frame,
+            textvariable=self._checkpoint_interval_text,
+            from_=0,
+            to_=sys.maxsize,
+            increment=1,
+            validate="focusout",
+            validatecommand=self._validate_checkpoint_interval,
+            command=self._checkpoint_interval_callback,
+        )
+        self._checkpoint_interval_text.set(str(self._settings.checkpoint_interval))
+        self._checkpoint_interval_input.grid(column=1, row=4, sticky="ew")
+        self._checkpoint_interval_input.bind(
+            "<FocusOut>", self._checkpoint_interval_callback
+        )
+
+        tk.Label(frame, text="Checkpoint Max To Keep:").grid(
+            column=0, row=5, sticky="w"
+        )
+
+        self._checkpoint_max_to_keep_text = tk.StringVar(
+            frame, value=str(self._settings.checkpoint_max_to_keep)
+        )
+        self._checkpoint_max_to_keep_input = tk.Spinbox(
+            frame,
+            textvariable=self._checkpoint_max_to_keep_text,
+            from_=0,
+            to_=sys.maxsize,
+            increment=1,
+            validate="focusout",
+            validatecommand=self._validate_checkpoint_max_to_keep,
+            command=self._checkpoint_max_to_keep_callback,
+        )
+        self._checkpoint_max_to_keep_text.set(
+            str(self._settings.checkpoint_max_to_keep)
+        )
+        self._checkpoint_max_to_keep_input.grid(column=1, row=5, sticky="ew")
+        self._checkpoint_max_to_keep_input.bind(
+            "<FocusOut>", self._checkpoint_max_to_keep_callback
+        )
+
     def _beta_callback(self, event=None) -> None:
         value = self._beta_text.get().strip()
         self._settings = self._settings._replace(beta=float(value))
@@ -257,6 +305,30 @@ class Renderer:
 
     def _validate_tsne_interval(self) -> bool:
         value = self._tsne_interval_text.get().strip()
+        try:
+            int(value)
+            return True
+        except ValueError:
+            return False
+
+    def _checkpoint_interval_callback(self, event=None) -> None:
+        value = self._checkpoint_interval_text.get().strip()
+        self._settings = self._settings._replace(checkpoint_interval=int(value))
+
+    def _validate_checkpoint_interval(self) -> bool:
+        value = self._checkpoint_interval_text.get().strip()
+        try:
+            int(value)
+            return True
+        except ValueError:
+            return False
+
+    def _checkpoint_max_to_keep_callback(self, event=None) -> None:
+        value = self._checkpoint_max_to_keep_text.get().strip()
+        self._settings = self._settings._replace(checkpoint_max_to_keep=int(value))
+
+    def _validate_checkpoint_max_to_keep(self) -> bool:
+        value = self._checkpoint_max_to_keep_text.get().strip()
         try:
             int(value)
             return True

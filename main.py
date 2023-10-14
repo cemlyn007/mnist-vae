@@ -64,7 +64,10 @@ def get_last_hyperparameters_and_settings(
     last_neptune_run: str,
     predict_interval: int,
     tsne_interval: int,
+    tsne_perplexity: int,
     tsne_iterations: int,
+    checkpoint_interval: int,
+    checkpoint_max_to_keep: int,
 ) -> tuple[experiment.Hyperparameters, renderer.Settings]:
     read_logger = logger.Logger(
         neptune_project, neptune_api_token, last_neptune_run, read_only=True
@@ -80,7 +83,10 @@ def get_last_hyperparameters_and_settings(
             batch_size=read_logger.get_last_int("metrics/batch_size"),
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
+            tsne_perplexity=tsne_perplexity,
             tsne_iterations=tsne_iterations,
+            checkpoint_interval=checkpoint_interval,
+            checkpoint_max_to_keep=checkpoint_max_to_keep,
         )
     finally:
         read_logger.close()
@@ -135,7 +141,7 @@ if __name__ == "__main__":
     import math
 
     PREDICT_IMAGE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    TSNE_IMAGE_IDS = list(range(2048))
+    TSNE_IMAGE_IDS = list(range(3072))
 
     default_experiment_directory = os.path.join(os.getcwd(), "experiments")
     if platform.system() == "Darwin":
@@ -154,6 +160,18 @@ if __name__ == "__main__":
         type=str,
         default=default_experiment_directory,
         help='On macOS you might want to append ".nosync" to the folder name to prevent iCloud syncing it.',
+    )
+    parser.add_argument(
+        "--checkpoint_save_interval",
+        type=int,
+        default=0,
+        help="Disable by setting to 0.",
+    )
+    parser.add_argument(
+        "--checkpoint_max_to_keep",
+        type=int,
+        default=0,
+        help="Disable by setting to 0.",
     )
     parser.add_argument(
         "--neptune_project",
@@ -176,6 +194,8 @@ if __name__ == "__main__":
     tsne_perplexity: float = args.tsne_perplexity
     tsne_iterations: int = args.tsne_iterations
     experiment_directory: str = args.experiment_directory
+    checkpoint_save_interval: int = args.checkpoint_save_interval
+    checkpoint_max_to_keep: int = args.checkpoint_max_to_keep
     neptune_project: str | None = args.neptune_project
     neptune_api_token: str | None = args.neptune_api_token
 
@@ -197,6 +217,8 @@ if __name__ == "__main__":
             tsne_perplexity=tsne_perplexity,
             tsne_iterations=tsne_iterations,
             batch_size=batch_size,
+            checkpoint_interval=checkpoint_save_interval,
+            checkpoint_max_to_keep=checkpoint_max_to_keep,
         )
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
@@ -204,8 +226,10 @@ if __name__ == "__main__":
             last_neptune_run,
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
+            tsne_perplexity=tsne_perplexity,
             tsne_iterations=tsne_iterations,
-            batch_size=batch_size,
+            checkpoint_interval=checkpoint_save_interval,
+            checkpoint_max_to_keep=checkpoint_max_to_keep,
         )
 
     if not os.path.exists(experiment_directory):
@@ -241,6 +265,17 @@ if __name__ == "__main__":
                 while view.open:
                     start_iteration = time.monotonic()
                     settings = view.update()
+
+                    if (
+                        settings.checkpoint_interval
+                        != this_experiment.checkpoint_interval
+                        or settings.checkpoint_max_to_keep
+                        != this_experiment.checkpoint_max_to_keep
+                    ):
+                        this_experiment.update_checkpoint_manager(
+                            settings.checkpoint_interval,
+                            settings.checkpoint_max_to_keep,
+                        )
 
                     (
                         metrics,

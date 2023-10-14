@@ -4,6 +4,7 @@ import sys
 
 
 class Settings(typing.NamedTuple):
+    latent_size: int
     learning_rate: float
     beta: float
     batch_size: int
@@ -40,8 +41,30 @@ class Renderer:
         hyperparameter_frame = tk.LabelFrame(self._root, text="Hyperparameters")
         hyperparameter_frame.grid(row=row, sticky="ew")
 
-        tk.Label(hyperparameter_frame, text="Learning Rate:", anchor="w").grid(
+        tk.Label(hyperparameter_frame, text="Latent Size:", anchor="w").grid(
             column=0, row=0, sticky="ew"
+        )
+
+        self._latent_size_text = tk.StringVar(
+            hyperparameter_frame, value=str(self._settings.latent_size)
+        )
+        self._latent_size_input = tk.Spinbox(
+            hyperparameter_frame,
+            textvariable=self._latent_size_text,
+            from_=1,
+            to=sys.maxsize,
+            increment=1,
+            validate="focusout",
+            validatecommand=self._validate_latent_size,
+            command=self._latent_size_callback,
+            state="disabled",
+        )
+        self._latent_size_text.set(str(self._settings.latent_size))
+        self._latent_size_input.grid(column=1, row=0, sticky="ew")
+        self._latent_size_input.bind("<FocusOut>", self._latent_size_callback)
+
+        tk.Label(hyperparameter_frame, text="Learning Rate:", anchor="w").grid(
+            column=0, row=1, sticky="ew"
         )
 
         self._learning_rate_text = tk.StringVar(
@@ -58,11 +81,11 @@ class Renderer:
             command=self._learning_rate_callback,
         )
         self._learning_rate_text.set(str(self._settings.learning_rate))
-        self._learning_rate_input.grid(column=1, row=0, sticky="ew")
+        self._learning_rate_input.grid(column=1, row=1, sticky="ew")
         self._learning_rate_input.bind("<FocusOut>", self._learning_rate_callback)
 
         tk.Label(hyperparameter_frame, text="Beta:", anchor="w").grid(
-            column=0, row=1, sticky="ew"
+            column=0, row=2, sticky="ew"
         )
         self._beta_text = tk.StringVar(
             hyperparameter_frame, value=str(self._settings.beta)
@@ -78,11 +101,11 @@ class Renderer:
             command=self._beta_callback,
         )
         self._beta_text.set(str(self._settings.beta))
-        self._beta_input.grid(column=1, row=1, sticky="ew")
+        self._beta_input.grid(column=1, row=2, sticky="ew")
         self._beta_input.bind("<FocusOut>", self._beta_callback)
 
         tk.Label(hyperparameter_frame, text="Batch Size:", anchor="w").grid(
-            column=0, row=2, sticky="ew"
+            column=0, row=3, sticky="ew"
         )
         self._batch_size_text = tk.StringVar(
             hyperparameter_frame, value=str(self._settings.batch_size)
@@ -98,7 +121,7 @@ class Renderer:
             command=self._batch_size_callback,
         )
         self._batch_size_text.set(str(self._settings.batch_size))
-        self._batch_size_input.grid(column=1, row=2, sticky="ew")
+        self._batch_size_input.grid(column=1, row=3, sticky="ew")
         self._batch_size_input.bind("<FocusOut>", self._batch_size_callback)
 
     def _add_monitor_frame(self, row: int) -> None:
@@ -226,6 +249,18 @@ class Renderer:
         self._checkpoint_max_to_keep_input.bind(
             "<FocusOut>", self._checkpoint_max_to_keep_callback
         )
+
+    def _latent_size_callback(self, event=None) -> None:
+        value = self._latent_size_text.get().strip()
+        self._settings = self._settings._replace(latent_size=int(value))
+
+    def _validate_latent_size(self) -> bool:
+        value = self._latent_size_text.get().strip()
+        try:
+            int(value)
+            return True
+        except ValueError:
+            return False
 
     def _beta_callback(self, event=None) -> None:
         value = self._beta_text.get().strip()

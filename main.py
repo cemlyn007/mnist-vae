@@ -78,6 +78,7 @@ def get_last_hyperparameters_and_settings(
             learning_rate=read_logger.get_float("hyperparameters/learning_rate"),
         )
         settings = renderer.Settings(
+            latent_size=hyperparameters.latent_dims,
             learning_rate=read_logger.get_last_float("metrics/learning_rate"),
             beta=read_logger.get_last_float("metrics/beta"),
             batch_size=read_logger.get_last_int("metrics/batch_size"),
@@ -150,6 +151,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("MNIST VAE")
     parser.add_argument("--new_experiment", action="store_true")
     parser.add_argument("--backend", type=str, default=None)
+    parser.add_argument("--latent_size", type=int, default=16)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--predict_interval", type=int, default=0, help="0 to disable")
     parser.add_argument("--tsne_interval", type=int, default=0, help="0 to disable")
@@ -188,6 +190,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     new_experiment: bool = args.new_experiment
     backend: str | None = args.backend
+    latent_size: int = args.latent_size
     batch_size: int = args.batch_size
     predict_interval: int = args.predict_interval
     tsne_interval: int = args.tsne_interval
@@ -208,7 +211,9 @@ if __name__ == "__main__":
             os.remove(last_neptune_run_path)
         shutil.rmtree(experiment_directory, ignore_errors=True)
         last_neptune_run = None
-        hyperparameters = experiment.Hyperparameters(latent_dims=16, learning_rate=1e-3)
+        hyperparameters = experiment.Hyperparameters(
+            latent_dims=latent_size, learning_rate=1e-3
+        )
         settings = renderer.Settings(
             beta=0.5,
             learning_rate=hyperparameters.learning_rate,

@@ -46,22 +46,10 @@ def cache_neptune_run_id(last_neptune_file_path: str, run_id: str) -> None:
         f.write(run_id)
 
 
-def get_hyperparameters(last_neptune_run: str) -> experiment.Hyperparameters:
-    read_logger = logger.Logger(
-        neptune_project, neptune_api_token, last_neptune_run, read_only=True
-    )
-    try:
-        hyperparameters = experiment.Hyperparameters(
-            latent_dims=read_logger.get_int("hyperparameters/latent_dims"),
-            learning_rate=read_logger.get_float("hyperparameters/learning_rate"),
-        )
-    except:
-        read_logger.close()
-    return hyperparameters
-
-
 def get_last_hyperparameters_and_settings(
     last_neptune_run: str,
+    neptune_project: str,
+    neptune_api_token: str,
     predict_interval: int,
     tsne_interval: int,
     tsne_perplexity: int,
@@ -88,6 +76,8 @@ def get_last_hyperparameters_and_settings(
             tsne_iterations=tsne_iterations,
             checkpoint_interval=checkpoint_interval,
             checkpoint_max_to_keep=checkpoint_max_to_keep,
+            neptune_project_name=neptune_project,
+            neptune_api_token=neptune_api_token,
             state=renderer.State.PAUSED,
         )
     finally:
@@ -156,6 +146,8 @@ if __name__ == "__main__":
     import shutil
     import platform
     import math
+    import keyring
+    import json
 
     get_some_images = jax.jit(
         get_some_images,
@@ -168,7 +160,7 @@ if __name__ == "__main__":
         default_experiment_directory = default_experiment_directory + ".nosync"
 
     parser = argparse.ArgumentParser("MNIST VAE")
-    parser.add_argument("--new_experiment", action="store_true")
+    parser.add_argument("--resume_experiment", action="store_true")
     parser.add_argument("--backend", type=str, default=None)
     parser.add_argument("--latent_size", type=int, default=16)
     parser.add_argument("--batch_size", type=int, default=32)
@@ -197,17 +189,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--neptune_project",
         type=str,
-        default=None,
+        default="",
         help='If not specified, will fallback to using the environment variable "NEPTUNE_PROJECT"',
     )
     parser.add_argument(
         "--neptune_api_token",
         type=str,
-        default=None,
+        default="",
         help='If not specified, will fallback to using the environment variable "NEPTUNE_API_TOKEN"',
     )
     args = parser.parse_args()
-    new_experiment: bool = args.new_experiment
+    new_experiment: bool = not args.resume_experiment
     backend: str | None = args.backend
     latent_size: int = args.latent_size
     batch_size: int = args.batch_size
@@ -218,12 +210,24 @@ if __name__ == "__main__":
     experiment_directory: str = args.experiment_directory
     checkpoint_save_interval: int = args.checkpoint_save_interval
     checkpoint_max_to_keep: int = args.checkpoint_max_to_keep
-    neptune_project: str | None = args.neptune_project
-    neptune_api_token: str | None = args.neptune_api_token
+    neptune_project: str = args.neptune_project
+    neptune_api_token: str = args.neptune_api_token
 
     cache_directory = os.path.join(experiment_directory, "cache")
     checkpoint_path = os.path.join(experiment_directory, "checkpoints")
     last_neptune_run_path = os.path.join(experiment_directory, ".last_neptune_run")
+    if "NEPTUNE_DATA_DIRECTORY" not in os.environ:
+        os.environ["NEPTUNE_DATA_DIRECTORY"] = os.path.join(
+            experiment_directory, "neptune"
+        )
+
+    credential = keyring.get_credential("mnist-vae", "")
+    if credential:
+        password = json.loads(credential.password)
+        if not neptune_project:
+            neptune_project = password["neptune_project_name"]
+        if not neptune_api_token:
+            neptune_api_token = password["neptune_api_token"]
 
     if new_experiment:
         if os.path.exists(last_neptune_run_path):
@@ -244,12 +248,16 @@ if __name__ == "__main__":
             batch_size=batch_size,
             checkpoint_interval=checkpoint_save_interval,
             checkpoint_max_to_keep=checkpoint_max_to_keep,
+            neptune_project_name=neptune_project,
+            neptune_api_token=neptune_api_token,
             state=renderer.State.NEW,
         )
     else:
         last_neptune_run = get_last_neptune_run(last_neptune_run_path)
         hyperparameters, settings = get_last_hyperparameters_and_settings(
             last_neptune_run,
+            neptune_project,
+            neptune_api_token,
             predict_interval=predict_interval,
             tsne_interval=tsne_interval,
             tsne_perplexity=tsne_perplexity,
@@ -261,14 +269,69 @@ if __name__ == "__main__":
     if not os.path.exists(experiment_directory):
         os.makedirs(experiment_directory)
 
-    view = renderer.Renderer(settings, os.path.join(os.getcwd(), "assets", "icon.png"))
+    view = renderer.Renderer(
+        settings, os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+    )
     try:
         while view.open and settings.state != renderer.State.RUNNING:
             settings = view.update()
             time.sleep(1.0 / 30.0)
         if view.open:
+            credential = keyring.get_credential("mnist-vae", "")
+            if credential is None:
+                if settings.neptune_project_name is None:
+                    raise ValueError(
+                        "Neptune project name not specified and not found in keyring."
+                    )
+                if settings.neptune_api_token is None:
+                    raise ValueError(
+                        "Neptune API token not specified and not found in keyring."
+                    )
+                # else...
+                keyring.set_password(
+                    "mnist-vae",
+                    "",
+                    json.dumps(
+                        {
+                            "neptune_project_name": settings.neptune_project_name,
+                            "neptune_api_token": settings.neptune_api_token,
+                        }
+                    ),
+                )
+            else:
+                # The credentials exist, but they might be outdated.
+                password = json.loads(credential.password)
+                save_password = False
+                if (
+                    settings.neptune_project_name
+                    and password["neptune_project_name"]
+                    != settings.neptune_project_name
+                ):
+                    save_password = True
+                    password["neptune_project_name"] = settings.neptune_project_name
+                else:
+                    settings = settings._replace(
+                        neptune_project_name=password["neptune_project_name"]
+                    )
+                if (
+                    settings.neptune_api_token
+                    and credential.password != settings.neptune_api_token
+                ):
+                    save_password = True
+                    password["neptune_api_token"] = settings.neptune_api_token
+                else:
+                    settings = settings._replace(
+                        neptune_api_token=password["neptune_api_token"]
+                    )
+
+                if save_password:
+                    keyring.set_password("mnist-vae", "", json.dumps(password))
+
             write_logger = logger.Logger(
-                neptune_project, neptune_api_token, last_neptune_run, flush_period=1.0
+                settings.neptune_project_name,
+                settings.neptune_api_token,
+                last_neptune_run,
+                flush_period=1.0,
             )
             try:
                 if new_experiment:

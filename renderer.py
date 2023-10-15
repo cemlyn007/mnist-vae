@@ -21,6 +21,8 @@ class Settings(typing.NamedTuple):
     tsne_iterations: int
     checkpoint_interval: int
     checkpoint_max_to_keep: int
+    neptune_project_name: str
+    neptune_api_token: str
     state: State
 
 
@@ -31,9 +33,10 @@ class Renderer:
 
         self._root.iconphoto(False, tk.PhotoImage(file=icon_file_path))
         tk.Frame(self._root)
-        self._add_hyperparameter_frame(0)
-        self._add_monitor_frame(1)
-        self._add_runtime_frame(2)
+        self._add_credentials_frame(0)
+        self._add_hyperparameter_frame(1)
+        self._add_monitor_frame(2)
+        self._add_runtime_frame(3)
 
         self._root.protocol("WM_DELETE_WINDOW", self._set_window_closed)
 
@@ -45,6 +48,36 @@ class Renderer:
 
     def close(self) -> None:
         self._root.quit()
+
+    def _add_credentials_frame(self, row: int) -> None:
+        frame = tk.LabelFrame(self._root, text="Credentials")
+        frame.grid(row=row, sticky="ew")
+
+        tk.Label(frame, text="Neptune Project:", anchor="w").grid(
+            column=0, row=0, sticky="ew"
+        )
+
+        self._neptune_project_text = tk.StringVar(
+            frame, value=str(self._settings.neptune_project_name)
+        )
+        self._neptune_project_input = tk.Entry(
+            frame, textvariable=self._neptune_project_text
+        )
+        self._neptune_project_input.grid(column=1, row=0, sticky="ew")
+
+        tk.Label(frame, text="Neptune API Token:", anchor="w").grid(
+            column=0, row=1, sticky="ew"
+        )
+
+        self._neptune_api_token_text = tk.StringVar(
+            frame, value=str(self._settings.neptune_api_token)
+        )
+        self._neptune_api_token_input = tk.Entry(
+            frame,
+            textvariable=self._neptune_api_token_text,
+            show="*",
+        )
+        self._neptune_api_token_input.grid(column=1, row=1, sticky="ew")
 
     def _add_hyperparameter_frame(self, row: int) -> None:
         hyperparameter_frame = tk.LabelFrame(self._root, text="Hyperparameters")
@@ -392,7 +425,13 @@ class Renderer:
         if self._settings.state == State.NEW:
             self._latent_size_input.configure(state="disabled")
             self._state_button.config(text="Pause")
-            self._settings = self._settings._replace(state=State.RUNNING)
+            self._neptune_project_input.configure(state="disabled")
+            self._neptune_api_token_input.configure(state="disabled")
+            self._settings = self._settings._replace(
+                state=State.RUNNING,
+                neptune_project_name=self._neptune_project_text.get().strip(),
+                neptune_api_token=self._neptune_api_token_text.get().strip(),
+            )
         elif self._settings.state == State.PAUSED:
             self._state_button.config(text="Pause")
             self._settings = self._settings._replace(state=State.RUNNING)

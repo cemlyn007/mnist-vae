@@ -23,6 +23,9 @@ class Logger:
             mode="read-only" if read_only else "async",
         )
 
+    def get_url(self) -> str:
+        return self._run.get_url()
+
     def get_int(self, key: str) -> int:
         return self._run[key].fetch()
 

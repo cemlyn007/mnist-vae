@@ -148,6 +148,7 @@ if __name__ == "__main__":
     import math
     import keyring
     import json
+    import webbrowser
 
     get_some_images = jax.jit(
         get_some_images,
@@ -334,6 +335,8 @@ if __name__ == "__main__":
                 flush_period=1.0,
             )
             try:
+                url = write_logger.get_url()
+                webbrowser.open_new_tab(url)
                 if new_experiment:
                     cache_neptune_run_id(last_neptune_run_path, write_logger.run_id)
 

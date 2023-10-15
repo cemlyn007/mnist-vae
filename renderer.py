@@ -30,15 +30,16 @@ class Renderer:
     def __init__(self, settings: Settings, icon_file_path: str) -> None:
         self._settings = settings
         self._root = tk.Tk(className=" MNIST VAE Settings")
-
         self._root.iconphoto(False, tk.PhotoImage(file=icon_file_path))
-        tk.Frame(self._root)
+
         self._add_credentials_frame(0)
         self._add_hyperparameter_frame(1)
         self._add_monitor_frame(2)
         self._add_runtime_frame(3)
 
         self._root.protocol("WM_DELETE_WINDOW", self._set_window_closed)
+
+        self._make_dynamic(self._root)
 
         self.open = True
 
@@ -96,7 +97,7 @@ class Renderer:
 
     def _add_hyperparameter_frame(self, row: int) -> None:
         frame = tk.LabelFrame(self._root, text="Hyperparameters")
-        frame.grid(row=row, sticky="ew")
+        frame.grid(row=row, columnspan=2, sticky="ew")
         frame.columnconfigure(1, weight=1)
 
         tk.Label(frame, text="Latent Size:", anchor="w").grid(
@@ -180,10 +181,12 @@ class Renderer:
 
     def _add_monitor_frame(self, row: int) -> None:
         frame = tk.LabelFrame(self._root, text="Monitor")
-        frame.grid(row=row, sticky="ew")
+        frame.grid(row=row, columnspan=2, sticky="ew")
         frame.columnconfigure(1, weight=1)
 
-        tk.Label(frame, text="Predict Interval:").grid(column=0, row=0, sticky="w")
+        tk.Label(frame, text="Predict Interval:", anchor="w").grid(
+            column=0, row=0, sticky="ew"
+        )
 
         self._predict_interval_text = tk.StringVar(
             frame, value=str(self._settings.predict_interval)
@@ -202,7 +205,9 @@ class Renderer:
         self._predict_interval_input.grid(column=1, row=0, sticky="ew")
         self._predict_interval_input.bind("<FocusOut>", self._predict_interval_callback)
 
-        tk.Label(frame, text="t-SNE Interval:").grid(column=0, row=1, sticky="w")
+        tk.Label(frame, text="t-SNE Interval:", anchor="w").grid(
+            column=0, row=1, sticky="ew"
+        )
 
         self._tsne_interval_text = tk.StringVar(
             frame, value=str(self._settings.tsne_interval)
@@ -221,7 +226,9 @@ class Renderer:
         self._tsne_interval_input.grid(column=1, row=1, sticky="ew")
         self._tsne_interval_input.bind("<FocusOut>", self._tsne_interval_callback)
 
-        tk.Label(frame, text="t-SNE Perplexity:").grid(column=0, row=2, sticky="w")
+        tk.Label(frame, text="t-SNE Perplexity:", anchor="w").grid(
+            column=0, row=2, sticky="ew"
+        )
 
         self._tsne_perplexity_text = tk.StringVar(
             frame, value=str(self._settings.tsne_perplexity)
@@ -240,7 +247,9 @@ class Renderer:
         self._tsne_perplexity_input.grid(column=1, row=2, sticky="ew")
         self._tsne_perplexity_input.bind("<FocusOut>", self._tsne_perplexity_callback)
 
-        tk.Label(frame, text="t-SNE Iterations:").grid(column=0, row=3, sticky="w")
+        tk.Label(frame, text="t-SNE Iterations:", anchor="w").grid(
+            column=0, row=3, sticky="ew"
+        )
 
         self._tsne_iterations_text = tk.StringVar(
             frame, value=str(self._settings.tsne_iterations)
@@ -259,7 +268,9 @@ class Renderer:
         self._tsne_iterations_input.grid(column=1, row=3, sticky="ew")
         self._tsne_iterations_input.bind("<FocusOut>", self._tsne_iterations_callback)
 
-        tk.Label(frame, text="Checkpoint Interval:").grid(column=0, row=4, sticky="w")
+        tk.Label(frame, text="Checkpoint Interval:", anchor="w").grid(
+            column=0, row=4, sticky="ew"
+        )
 
         self._checkpoint_interval_text = tk.StringVar(
             frame, value=str(self._settings.checkpoint_interval)
@@ -280,8 +291,8 @@ class Renderer:
             "<FocusOut>", self._checkpoint_interval_callback
         )
 
-        tk.Label(frame, text="Checkpoint Max To Keep:").grid(
-            column=0, row=5, sticky="w"
+        tk.Label(frame, text="Checkpoint Max To Keep:", anchor="w").grid(
+            column=0, row=5, sticky="ew"
         )
 
         self._checkpoint_max_to_keep_text = tk.StringVar(
@@ -307,7 +318,7 @@ class Renderer:
 
     def _add_runtime_frame(self, row: int) -> None:
         frame = tk.LabelFrame(self._root, text="Runtime")
-        frame.grid(row=row, sticky="ew")
+        frame.grid(row=row, columnspan=2, sticky="ew")
 
         self._state_button = tk.Button(
             frame, text="Start", command=self._start_callback
@@ -456,3 +467,13 @@ class Renderer:
 
     def _set_window_closed(self) -> None:
         self.open = False
+
+    def _make_dynamic(self, widget: tk.Widget) -> None:
+        col_count, row_count = widget.grid_size()
+
+        for i in range(col_count):
+            widget.grid_columnconfigure(i, weight=1 if i == 1 else 0)
+
+        for child in widget.children.values():
+            child.grid_configure(sticky="ew")
+            self._make_dynamic(child)

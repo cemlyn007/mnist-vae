@@ -51,10 +51,14 @@ class Renderer:
 
     def _add_credentials_frame(self, row: int) -> None:
         frame = tk.LabelFrame(self._root, text="Credentials")
-        frame.grid(row=row, sticky="ew")
+        frame.grid(row=row, columnspan=2, sticky="ew")
+        frame.columnconfigure(1, weight=1)
 
-        tk.Label(frame, text="Neptune Project:", anchor="w").grid(
-            column=0, row=0, sticky="ew"
+        neptune_project_label = tk.Label(frame, text="Neptune Project:", anchor="w")
+        neptune_project_label.grid(
+            row=0,
+            column=0,
+            sticky="ew",
         )
 
         self._neptune_project_text = tk.StringVar(
@@ -63,10 +67,17 @@ class Renderer:
         self._neptune_project_input = tk.Entry(
             frame, textvariable=self._neptune_project_text
         )
-        self._neptune_project_input.grid(column=1, row=0, sticky="ew")
+        self._neptune_project_input.grid(
+            row=0,
+            column=1,
+            sticky="ew",
+        )
 
-        tk.Label(frame, text="Neptune API Token:", anchor="w").grid(
-            column=0, row=1, sticky="ew"
+        neptune_api_token_label = tk.Label(frame, text="Neptune API Token:", anchor="w")
+        neptune_api_token_label.grid(
+            column=0,
+            row=1,
+            sticky="ew",
         )
 
         self._neptune_api_token_text = tk.StringVar(
@@ -77,21 +88,26 @@ class Renderer:
             textvariable=self._neptune_api_token_text,
             show="*",
         )
-        self._neptune_api_token_input.grid(column=1, row=1, sticky="ew")
+        self._neptune_api_token_input.grid(
+            column=1,
+            row=1,
+            sticky="ew",
+        )
 
     def _add_hyperparameter_frame(self, row: int) -> None:
-        hyperparameter_frame = tk.LabelFrame(self._root, text="Hyperparameters")
-        hyperparameter_frame.grid(row=row, sticky="ew")
+        frame = tk.LabelFrame(self._root, text="Hyperparameters")
+        frame.grid(row=row, sticky="ew")
+        frame.columnconfigure(1, weight=1)
 
-        tk.Label(hyperparameter_frame, text="Latent Size:", anchor="w").grid(
+        tk.Label(frame, text="Latent Size:", anchor="w").grid(
             column=0, row=0, sticky="ew"
         )
 
         self._latent_size_text = tk.StringVar(
-            hyperparameter_frame, value=str(self._settings.latent_size)
+            frame, value=str(self._settings.latent_size)
         )
         self._latent_size_input = tk.Spinbox(
-            hyperparameter_frame,
+            frame,
             textvariable=self._latent_size_text,
             from_=1,
             to=sys.maxsize,
@@ -105,15 +121,15 @@ class Renderer:
         self._latent_size_input.grid(column=1, row=0, sticky="ew")
         self._latent_size_input.bind("<FocusOut>", self._latent_size_callback)
 
-        tk.Label(hyperparameter_frame, text="Learning Rate:", anchor="w").grid(
+        tk.Label(frame, text="Learning Rate:", anchor="w").grid(
             column=0, row=1, sticky="ew"
         )
 
         self._learning_rate_text = tk.StringVar(
-            hyperparameter_frame, value=str(self._settings.learning_rate)
+            frame, value=str(self._settings.learning_rate)
         )
         self._learning_rate_input = tk.Spinbox(
-            hyperparameter_frame,
+            frame,
             textvariable=self._learning_rate_text,
             from_=0.0,
             to=100.0,
@@ -126,14 +142,10 @@ class Renderer:
         self._learning_rate_input.grid(column=1, row=1, sticky="ew")
         self._learning_rate_input.bind("<FocusOut>", self._learning_rate_callback)
 
-        tk.Label(hyperparameter_frame, text="Beta:", anchor="w").grid(
-            column=0, row=2, sticky="ew"
-        )
-        self._beta_text = tk.StringVar(
-            hyperparameter_frame, value=str(self._settings.beta)
-        )
+        tk.Label(frame, text="Beta:", anchor="w").grid(column=0, row=2, sticky="ew")
+        self._beta_text = tk.StringVar(frame, value=str(self._settings.beta))
         self._beta_input = tk.Spinbox(
-            hyperparameter_frame,
+            frame,
             textvariable=self._beta_text,
             from_=0.0,
             to=100.0,
@@ -146,14 +158,14 @@ class Renderer:
         self._beta_input.grid(column=1, row=2, sticky="ew")
         self._beta_input.bind("<FocusOut>", self._beta_callback)
 
-        tk.Label(hyperparameter_frame, text="Batch Size:", anchor="w").grid(
+        tk.Label(frame, text="Batch Size:", anchor="w").grid(
             column=0, row=3, sticky="ew"
         )
         self._batch_size_text = tk.StringVar(
-            hyperparameter_frame, value=str(self._settings.batch_size)
+            frame, value=str(self._settings.batch_size)
         )
         self._batch_size_input = tk.Spinbox(
-            hyperparameter_frame,
+            frame,
             textvariable=self._batch_size_text,
             from_=0,
             to=sys.maxsize,
@@ -169,6 +181,7 @@ class Renderer:
     def _add_monitor_frame(self, row: int) -> None:
         frame = tk.LabelFrame(self._root, text="Monitor")
         frame.grid(row=row, sticky="ew")
+        frame.columnconfigure(1, weight=1)
 
         tk.Label(frame, text="Predict Interval:").grid(column=0, row=0, sticky="w")
 

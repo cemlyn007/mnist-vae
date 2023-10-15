@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 import typing
 import sys
 import enum
@@ -32,14 +33,10 @@ class Renderer:
         self._root = tk.Tk(className=" MNIST VAE Settings")
         self._root.iconphoto(False, tk.PhotoImage(file=icon_file_path))
 
-        self._add_credentials_frame(0)
-        self._add_hyperparameter_frame(1)
-        self._add_monitor_frame(2)
-        self._add_runtime_frame(3)
+        self._add_widgets()
+        self._make_dynamic(self._root)
 
         self._root.protocol("WM_DELETE_WINDOW", self._set_window_closed)
-
-        self._make_dynamic(self._root)
 
         self.open = True
 
@@ -50,65 +47,70 @@ class Renderer:
     def close(self) -> None:
         self._root.quit()
 
-    def _add_credentials_frame(self, row: int) -> None:
-        frame = tk.LabelFrame(self._root, text="Credentials")
-        frame.grid(row=row, columnspan=2, sticky="ew")
-        frame.columnconfigure(1, weight=1)
+    def _add_widgets(self) -> None:
+        tk.Label(self._root, text="Credentials", anchor="w").grid(columnspan=2, row=0)
 
-        neptune_project_label = tk.Label(frame, text="Neptune Project:", anchor="w")
+        neptune_project_label = tk.Label(
+            self._root, text="Neptune Project:", anchor="w"
+        )
         neptune_project_label.grid(
-            row=0,
-            column=0,
-            sticky="ew",
-        )
-
-        self._neptune_project_text = tk.StringVar(
-            frame, value=str(self._settings.neptune_project_name)
-        )
-        self._neptune_project_input = tk.Entry(
-            frame, textvariable=self._neptune_project_text
-        )
-        self._neptune_project_input.grid(
-            row=0,
-            column=1,
-            sticky="ew",
-        )
-
-        neptune_api_token_label = tk.Label(frame, text="Neptune API Token:", anchor="w")
-        neptune_api_token_label.grid(
             column=0,
             row=1,
             sticky="ew",
         )
 
+        self._neptune_project_text = tk.StringVar(
+            self._root, value=str(self._settings.neptune_project_name)
+        )
+        self._neptune_project_input = tk.Entry(
+            self._root, textvariable=self._neptune_project_text
+        )
+        self._neptune_project_input.grid(
+            column=1,
+            row=1,
+            sticky="ew",
+        )
+
+        neptune_api_token_label = tk.Label(
+            self._root, text="Neptune API Token:", anchor="w"
+        )
+        neptune_api_token_label.grid(
+            column=0,
+            row=2,
+            sticky="ew",
+        )
+
         self._neptune_api_token_text = tk.StringVar(
-            frame, value=str(self._settings.neptune_api_token)
+            self._root, value=str(self._settings.neptune_api_token)
         )
         self._neptune_api_token_input = tk.Entry(
-            frame,
+            self._root,
             textvariable=self._neptune_api_token_text,
             show="*",
         )
         self._neptune_api_token_input.grid(
             column=1,
-            row=1,
+            row=2,
             sticky="ew",
         )
+        ttk.Separator(self._root, orient="horizontal").grid(
+            columnspan=2, row=3, sticky="ew"
+        )
 
-    def _add_hyperparameter_frame(self, row: int) -> None:
-        frame = tk.LabelFrame(self._root, text="Hyperparameters")
-        frame.grid(row=row, columnspan=2, sticky="ew")
-        frame.columnconfigure(1, weight=1)
+        tk.Label(self._root, text="Hyperparameters", anchor="w").grid(
+            columnspan=2,
+            row=4,
+        )
 
-        tk.Label(frame, text="Latent Size:", anchor="w").grid(
-            column=0, row=0, sticky="ew"
+        tk.Label(self._root, text="Latent Size:", anchor="w").grid(
+            column=0, row=5, sticky="ew"
         )
 
         self._latent_size_text = tk.StringVar(
-            frame, value=str(self._settings.latent_size)
+            self._root, value=str(self._settings.latent_size)
         )
         self._latent_size_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._latent_size_text,
             from_=1,
             to=sys.maxsize,
@@ -119,18 +121,18 @@ class Renderer:
             state="disabled" if self._settings.state != State.NEW else "normal",
         )
         self._latent_size_text.set(str(self._settings.latent_size))
-        self._latent_size_input.grid(column=1, row=0, sticky="ew")
+        self._latent_size_input.grid(row=5, column=1, sticky="ew")
         self._latent_size_input.bind("<FocusOut>", self._latent_size_callback)
 
-        tk.Label(frame, text="Learning Rate:", anchor="w").grid(
-            column=0, row=1, sticky="ew"
+        tk.Label(self._root, text="Learning Rate:", anchor="w").grid(
+            column=0, row=6, sticky="ew"
         )
 
         self._learning_rate_text = tk.StringVar(
-            frame, value=str(self._settings.learning_rate)
+            self._root, value=str(self._settings.learning_rate)
         )
         self._learning_rate_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._learning_rate_text,
             from_=0.0,
             to=100.0,
@@ -140,13 +142,15 @@ class Renderer:
             command=self._learning_rate_callback,
         )
         self._learning_rate_text.set(str(self._settings.learning_rate))
-        self._learning_rate_input.grid(column=1, row=1, sticky="ew")
+        self._learning_rate_input.grid(column=1, row=6, sticky="ew")
         self._learning_rate_input.bind("<FocusOut>", self._learning_rate_callback)
 
-        tk.Label(frame, text="Beta:", anchor="w").grid(column=0, row=2, sticky="ew")
-        self._beta_text = tk.StringVar(frame, value=str(self._settings.beta))
+        tk.Label(self._root, text="Beta:", anchor="w").grid(
+            column=0, row=7, sticky="ew"
+        )
+        self._beta_text = tk.StringVar(self._root, value=str(self._settings.beta))
         self._beta_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._beta_text,
             from_=0.0,
             to=100.0,
@@ -156,17 +160,17 @@ class Renderer:
             command=self._beta_callback,
         )
         self._beta_text.set(str(self._settings.beta))
-        self._beta_input.grid(column=1, row=2, sticky="ew")
+        self._beta_input.grid(column=1, row=7, sticky="ew")
         self._beta_input.bind("<FocusOut>", self._beta_callback)
 
-        tk.Label(frame, text="Batch Size:", anchor="w").grid(
-            column=0, row=3, sticky="ew"
+        tk.Label(self._root, text="Batch Size:", anchor="w").grid(
+            column=0, row=8, sticky="ew"
         )
         self._batch_size_text = tk.StringVar(
-            frame, value=str(self._settings.batch_size)
+            self._root, value=str(self._settings.batch_size)
         )
         self._batch_size_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._batch_size_text,
             from_=0,
             to=sys.maxsize,
@@ -176,23 +180,24 @@ class Renderer:
             command=self._batch_size_callback,
         )
         self._batch_size_text.set(str(self._settings.batch_size))
-        self._batch_size_input.grid(column=1, row=3, sticky="ew")
+        self._batch_size_input.grid(column=1, row=8, sticky="ew")
         self._batch_size_input.bind("<FocusOut>", self._batch_size_callback)
 
-    def _add_monitor_frame(self, row: int) -> None:
-        frame = tk.LabelFrame(self._root, text="Monitor")
-        frame.grid(row=row, columnspan=2, sticky="ew")
-        frame.columnconfigure(1, weight=1)
+        ttk.Separator(self._root, orient="horizontal").grid(
+            columnspan=2, row=9, sticky="ew"
+        )
 
-        tk.Label(frame, text="Predict Interval:", anchor="w").grid(
-            column=0, row=0, sticky="ew"
+        tk.Label(self._root, text="Monitor", anchor="w").grid(columnspan=2, row=10)
+
+        tk.Label(self._root, text="Predict Interval:", anchor="w").grid(
+            column=0, row=11, sticky="ew"
         )
 
         self._predict_interval_text = tk.StringVar(
-            frame, value=str(self._settings.predict_interval)
+            self._root, value=str(self._settings.predict_interval)
         )
         self._predict_interval_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._predict_interval_text,
             from_=0,
             to_=sys.maxsize,
@@ -202,18 +207,18 @@ class Renderer:
             command=self._predict_interval_callback,
         )
         self._predict_interval_text.set(str(self._settings.predict_interval))
-        self._predict_interval_input.grid(column=1, row=0, sticky="ew")
+        self._predict_interval_input.grid(column=1, row=11, sticky="ew")
         self._predict_interval_input.bind("<FocusOut>", self._predict_interval_callback)
 
-        tk.Label(frame, text="t-SNE Interval:", anchor="w").grid(
-            column=0, row=1, sticky="ew"
+        tk.Label(self._root, text="t-SNE Interval:", anchor="w").grid(
+            column=0, row=12, sticky="ew"
         )
 
         self._tsne_interval_text = tk.StringVar(
-            frame, value=str(self._settings.tsne_interval)
+            self._root, value=str(self._settings.tsne_interval)
         )
         self._tsne_interval_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._tsne_interval_text,
             from_=0,
             to_=sys.maxsize,
@@ -223,18 +228,18 @@ class Renderer:
             command=self._tsne_interval_callback,
         )
         self._tsne_interval_text.set(str(self._settings.tsne_interval))
-        self._tsne_interval_input.grid(column=1, row=1, sticky="ew")
+        self._tsne_interval_input.grid(column=1, row=12, sticky="ew")
         self._tsne_interval_input.bind("<FocusOut>", self._tsne_interval_callback)
 
-        tk.Label(frame, text="t-SNE Perplexity:", anchor="w").grid(
-            column=0, row=2, sticky="ew"
+        tk.Label(self._root, text="t-SNE Perplexity:", anchor="w").grid(
+            column=0, row=13, sticky="ew"
         )
 
         self._tsne_perplexity_text = tk.StringVar(
-            frame, value=str(self._settings.tsne_perplexity)
+            self._root, value=str(self._settings.tsne_perplexity)
         )
         self._tsne_perplexity_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._tsne_perplexity_text,
             from_=0,
             to_=sys.maxsize,
@@ -244,18 +249,18 @@ class Renderer:
             command=self._tsne_perplexity_callback,
         )
         self._tsne_perplexity_text.set(str(self._settings.tsne_perplexity))
-        self._tsne_perplexity_input.grid(column=1, row=2, sticky="ew")
+        self._tsne_perplexity_input.grid(column=1, row=13, sticky="ew")
         self._tsne_perplexity_input.bind("<FocusOut>", self._tsne_perplexity_callback)
 
-        tk.Label(frame, text="t-SNE Iterations:", anchor="w").grid(
-            column=0, row=3, sticky="ew"
+        tk.Label(self._root, text="t-SNE Iterations:", anchor="w").grid(
+            column=0, row=14, sticky="ew"
         )
 
         self._tsne_iterations_text = tk.StringVar(
-            frame, value=str(self._settings.tsne_iterations)
+            self._root, value=str(self._settings.tsne_iterations)
         )
         self._tsne_iterations_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._tsne_iterations_text,
             from_=1,
             to_=sys.maxsize,
@@ -265,18 +270,18 @@ class Renderer:
             command=self._tsne_iterations_callback,
         )
         self._tsne_iterations_text.set(str(self._settings.tsne_iterations))
-        self._tsne_iterations_input.grid(column=1, row=3, sticky="ew")
+        self._tsne_iterations_input.grid(column=1, row=14, sticky="ew")
         self._tsne_iterations_input.bind("<FocusOut>", self._tsne_iterations_callback)
 
-        tk.Label(frame, text="Checkpoint Interval:", anchor="w").grid(
-            column=0, row=4, sticky="ew"
+        tk.Label(self._root, text="Checkpoint Interval:", anchor="w").grid(
+            column=0, row=15, sticky="ew"
         )
 
         self._checkpoint_interval_text = tk.StringVar(
-            frame, value=str(self._settings.checkpoint_interval)
+            self._root, value=str(self._settings.checkpoint_interval)
         )
         self._checkpoint_interval_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._checkpoint_interval_text,
             from_=0,
             to_=sys.maxsize,
@@ -286,20 +291,20 @@ class Renderer:
             command=self._checkpoint_interval_callback,
         )
         self._checkpoint_interval_text.set(str(self._settings.checkpoint_interval))
-        self._checkpoint_interval_input.grid(column=1, row=4, sticky="ew")
+        self._checkpoint_interval_input.grid(column=1, row=15, sticky="ew")
         self._checkpoint_interval_input.bind(
             "<FocusOut>", self._checkpoint_interval_callback
         )
 
-        tk.Label(frame, text="Checkpoint Max To Keep:", anchor="w").grid(
-            column=0, row=5, sticky="ew"
+        tk.Label(self._root, text="Checkpoint Max To Keep:", anchor="w").grid(
+            column=0, row=16, sticky="ew"
         )
 
         self._checkpoint_max_to_keep_text = tk.StringVar(
-            frame, value=str(self._settings.checkpoint_max_to_keep)
+            self._root, value=str(self._settings.checkpoint_max_to_keep)
         )
         self._checkpoint_max_to_keep_input = tk.Spinbox(
-            frame,
+            self._root,
             textvariable=self._checkpoint_max_to_keep_text,
             from_=0,
             to_=sys.maxsize,
@@ -311,19 +316,19 @@ class Renderer:
         self._checkpoint_max_to_keep_text.set(
             str(self._settings.checkpoint_max_to_keep)
         )
-        self._checkpoint_max_to_keep_input.grid(column=1, row=5, sticky="ew")
+        self._checkpoint_max_to_keep_input.grid(column=1, row=16, sticky="ew")
         self._checkpoint_max_to_keep_input.bind(
             "<FocusOut>", self._checkpoint_max_to_keep_callback
         )
 
-    def _add_runtime_frame(self, row: int) -> None:
-        frame = tk.LabelFrame(self._root, text="Runtime")
-        frame.grid(row=row, columnspan=2, sticky="ew")
+        ttk.Separator(self._root, orient="horizontal").grid(
+            row=19, columnspan=2, sticky="ew"
+        )
 
         self._state_button = tk.Button(
-            frame, text="Start", command=self._start_callback
+            self._root, text="Start", command=self._start_callback
         )
-        self._state_button.grid(column=0, row=0, sticky="ew")
+        self._state_button.grid(columnspan=2, row=17, sticky="ew")
 
     def _latent_size_callback(self, event=None) -> None:
         value = self._latent_size_text.get().strip()

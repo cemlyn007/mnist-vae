@@ -98,7 +98,9 @@ class Renderer:
             frame, value=str(self._settings.neptune_project_name)
         )
         self._neptune_project_input = tk.Entry(
-            frame, textvariable=self._neptune_project_text
+            frame,
+            textvariable=self._neptune_project_text,
+            state="disabled" if self._settings.state != State.NEW else "normal",
         )
         self._neptune_project_input.grid(
             column=1,

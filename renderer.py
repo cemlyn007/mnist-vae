@@ -101,6 +101,8 @@ class Renderer:
             frame,
             textvariable=self._neptune_project_text,
             state="disabled" if self._settings.state != State.NEW else "normal",
+            validate="focusout",
+            validatecommand=self._validate_neptune_project,
         )
         self._neptune_project_input.grid(
             column=1,
@@ -108,7 +110,11 @@ class Renderer:
             sticky="ew",
         )
 
-        neptune_api_token_label = tk.Label(frame, text="Neptune API Token:", anchor="w")
+        neptune_api_token_label = tk.Label(
+            frame,
+            text="Neptune API Token:",
+            anchor="w",
+        )
         neptune_api_token_label.grid(
             column=0,
             row=2,
@@ -122,6 +128,8 @@ class Renderer:
             frame,
             textvariable=self._neptune_api_token_text,
             show="*",
+            validate="focusout",
+            validatecommand=self._validate_neptune_api_token,
         )
         self._neptune_api_token_input.grid(
             column=1,
@@ -355,9 +363,18 @@ class Renderer:
         )
 
         self._state_button = tk.Button(
-            frame, text="Start", command=self._start_callback
+            frame,
+            text="Start" if self._settings.state == State.NEW else "Resume",
+            command=self._start_callback,
         )
-        self._state_button.grid(columnspan=2, row=17, sticky="ew")
+        self._state_button.grid(column=0, row=17, sticky="ew")
+
+        self._reset_button = tk.Button(
+            frame,
+            text="Reset",
+            command=self._reset_callback,
+        )
+        self._reset_button.grid(column=1, row=17, sticky="ew")
 
     def _latent_size_callback(self, event=None) -> None:
         value = self._latent_size_text.get().strip()
@@ -479,25 +496,82 @@ class Renderer:
         except ValueError:
             return False
 
+    def _neptune_project_callback(self, event=None) -> None:
+        value = self._neptune_project_text.get().strip()
+        self._settings = self._settings._replace(neptune_project_name=value)
+
+    def _validate_neptune_project(self) -> bool:
+        value = self._neptune_project_text.get().strip()
+        components = value.split("/")
+        if len(components) != 2:
+            return False
+        # else...
+        owner, project = value.split("/")
+        if " " in owner or " " in project:
+            return False
+        # else...
+        return owner != "" and project != ""
+
+    def _neptune_api_token_callback(self, event=None) -> None:
+        value = self._neptune_api_token_text.get().strip()
+        self._settings = self._settings._replace(neptune_api_token=value)
+
+    def _validate_neptune_api_token(self) -> bool:
+        value = self._neptune_api_token_text.get().strip()
+        return len(value) > 0
+
     def _start_callback(self, event=None) -> None:
         if self._settings.state == State.NEW:
+            for validate_function, widget_callback in [
+                (self._validate_batch_size, self._batch_size_callback),
+                (self._validate_beta, self._beta_callback),
+                (
+                    self._validate_checkpoint_interval,
+                    self._checkpoint_interval_callback,
+                ),
+                (
+                    self._validate_checkpoint_max_to_keep,
+                    self._checkpoint_max_to_keep_callback,
+                ),
+                (self._validate_latent_size, self._latent_size_callback),
+                (self._validate_learning_rate, self._learning_rate_callback),
+                (self._validate_predict_interval, self._predict_interval_callback),
+                (self._validate_tsne_interval, self._tsne_interval_callback),
+                (self._validate_tsne_iterations, self._tsne_iterations_callback),
+                (self._validate_tsne_perplexity, self._tsne_perplexity_callback),
+                (self._validate_neptune_project, self._neptune_project_callback),
+                (self._validate_neptune_api_token, self._neptune_api_token_callback),
+            ]:
+                if validate_function():
+                    widget_callback()
+                else:
+                    print("Error: Invalid input", flush=True)
+                    return
+
             self._latent_size_input.configure(state="disabled")
             self._state_button.config(text="Pause")
             self._neptune_project_input.configure(state="disabled")
             self._neptune_api_token_input.configure(state="disabled")
-            self._settings = self._settings._replace(
-                state=State.RUNNING,
-                neptune_project_name=self._neptune_project_text.get().strip(),
-                neptune_api_token=self._neptune_api_token_text.get().strip(),
-            )
+            self._reset_button.configure(state="disabled")
+            self._settings = self._settings._replace(state=State.RUNNING)
         elif self._settings.state == State.PAUSED:
             self._state_button.config(text="Pause")
+            self._reset_button.configure(state="disabled")
             self._settings = self._settings._replace(state=State.RUNNING)
         elif self._settings.state == State.RUNNING:
             self._state_button.config(text="Resume")
+            self._reset_button.configure(state="normal")
             self._settings = self._settings._replace(state=State.PAUSED)
         else:
             raise ValueError("Invalid state")
+
+    def _reset_callback(self, event=None) -> None:
+        self._settings = self._settings._replace(state=State.NEW)
+        self._latent_size_input.configure(state="normal")
+        self._state_button.config(text="Start")
+        self._neptune_project_input.configure(state="normal")
+        self._neptune_api_token_input.configure(state="normal")
+        self._reset_button.configure(state="normal")
 
     def _set_window_closed(self) -> None:
         self.open = False

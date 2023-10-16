@@ -3,6 +3,7 @@ from tkinter import ttk
 import typing
 import sys
 import enum
+from tkinter import messagebox
 
 
 class State(enum.Enum):
@@ -590,3 +591,6 @@ class Renderer:
                 child.grid_configure(sticky="ew")
 
             self._make_dynamic(child)
+
+    def show_error(self, message: str) -> None:
+        messagebox.showerror("Error", message)

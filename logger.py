@@ -21,6 +21,7 @@ class Logger:
             capture_traceback=False,
             flush_period=flush_period,
             mode="read-only" if read_only else "async",
+            git_ref=False,
         )
 
     def get_url(self) -> str:

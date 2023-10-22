@@ -9,4 +9,4 @@ ml-dtypes==0.2.0; platform_system == "Darwin"
 jax==0.4.11; platform_system == "Darwin"
 jax-metal==0.0.4; platform_system == "Darwin"
 # Linux specific dependencies:
-jax
+jax==0.4.19; platform_system == "Linux"

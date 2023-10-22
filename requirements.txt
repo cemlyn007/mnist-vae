@@ -1,9 +1,12 @@
-ml-dtypes==0.2.0
-jax==0.4.11
-jax-metal==0.0.4
 flax==0.7.4
 optax==0.1.7
 orbax-checkpoint==0.4.1
 matplotlib==3.8.0
 neptune==1.8.2
 keyring==24.2.0
+# MacOS specific dependencies:
+ml-dtypes==0.2.0; platform_system == "Darwin"
+jax==0.4.11; platform_system == "Darwin"
+jax-metal==0.0.4; platform_system == "Darwin"
+# Linux specific dependencies:
+jax

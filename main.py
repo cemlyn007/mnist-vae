@@ -162,7 +162,7 @@ if __name__ == "__main__":
         backend="cpu" if sys.platform == "darwin" else None,
     )
 
-    default_experiment_directory = os.path.join(os.getcwd(), "experiments")
+    default_experiment_directory = os.path.join(os.path.expanduser("~"), "experiments")
     if platform.system() == "Darwin":
         default_experiment_directory = default_experiment_directory + ".nosync"
 

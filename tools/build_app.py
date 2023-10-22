@@ -68,7 +68,7 @@ pyinstall_command = [
     os.path.dirname(SPEC_PATH),
     "--name",
     "MNIST-VAE",
-    "--onedir",
+    "--onefile",
     "--windowed",
     "--noupx",
     "--distpath",

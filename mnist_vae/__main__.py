@@ -1,12 +1,9 @@
 import numpy as np
 import PIL.Image
 from typing import Callable, TypeVar
-import experiment
+from mnist_vae import experiment, logger, renderer, tsne
 import time
-import logger
-import renderer
 import jax
-import tsne
 from matplotlib.backends import backend_agg
 import matplotlib.figure
 import matplotlib.cm
@@ -270,8 +267,13 @@ if __name__ == "__main__":
             state=renderer.State.NEW,
         )
 
+    if getattr(sys, "frozen", False):
+        working_directory = sys._MEIPASS
+    else:
+        working_directory = os.getcwd()
+
     view = renderer.Renderer(
-        settings, os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+        settings, os.path.join(working_directory, "assets", "icon.png")
     )
     try:
         if not os.path.exists(experiment_directory):

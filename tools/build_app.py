@@ -63,12 +63,12 @@ if jax_location is None:
 
 
 pyinstall_command = [
-    "main.py",
+    "mnist_vae/__main__.py",
     "--specpath",
     os.path.dirname(SPEC_PATH),
     "--name",
     "MNIST-VAE",
-    "--onefile",
+    "--onedir",
     "--windowed",
     "--noupx",
     "--distpath",

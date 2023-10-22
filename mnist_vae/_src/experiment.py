@@ -1,7 +1,7 @@
 from flax import linen as nn
 import jax
 import typing
-import mnist
+from mnist_vae._src import mnist
 import jax.numpy as jnp
 import jax
 import optax

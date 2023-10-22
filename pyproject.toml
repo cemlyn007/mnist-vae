@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mnist-vae"
+version = "0.0.0"
+authors = [
+  { name="Cemlyn Neil Waters", email="cemlynwater@gmail.com" },
+]
+description = "App for training a VAE on MNIST"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+[tool.semantic_release]
+branch = "main"
+version_toml = ["pyproject.toml:project.version"]
+build_command = "python -m build"
+
+[tool.setuptools]
+packages = ["mnist_vae"]

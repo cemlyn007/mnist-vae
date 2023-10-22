@@ -4,6 +4,7 @@ orbax-checkpoint==0.4.1
 matplotlib==3.8.0
 neptune==1.8.2
 keyring==24.2.0
+Pillow==10.1.0
 # MacOS specific dependencies:
 ml-dtypes==0.2.0; platform_system == "Darwin"
 jax==0.4.11; platform_system == "Darwin"

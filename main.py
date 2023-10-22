@@ -271,7 +271,7 @@ if __name__ == "__main__":
         )
 
     view = renderer.Renderer(
-        settings, os.path.join(os.path.dirname(__file__), "assets", "icon.icns")
+        settings, os.path.join(os.path.dirname(__file__), "assets", "icon.png")
     )
     try:
         if not os.path.exists(experiment_directory):

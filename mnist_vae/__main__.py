@@ -317,18 +317,21 @@ if __name__ == "__main__":
 
                                 while mine.poll(0.0):
                                     message = mine.recv()
-                                    (
-                                        step,
-                                        timestamp,
-                                        log_values,
-                                        log_images,
-                                    ) = message
-                                    write_logger.append_values(
-                                        log_values, step, timestamp
-                                    )
-                                    write_logger.append_images(
-                                        log_images, step, timestamp
-                                    )
+                                    if message == "ready":
+                                        mine.send(settings)
+                                    else:
+                                        (
+                                            step,
+                                            timestamp,
+                                            log_values,
+                                            log_images,
+                                        ) = message
+                                        write_logger.append_values(
+                                            log_values, step, timestamp
+                                        )
+                                        write_logger.append_images(
+                                            log_images, step, timestamp
+                                        )
                         except KeyboardInterrupt:
                             print("Stopping...", flush=True)
                         finally:

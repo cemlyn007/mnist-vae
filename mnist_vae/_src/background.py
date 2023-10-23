@@ -157,7 +157,9 @@ def experiment_process(
                 log_values = {}
                 log_images = {}
 
+                connection.send("ready")
                 settings = connection.recv()
+                step = 0
                 while settings.state != renderer.State.NEW and not connection.closed:
                     start_iteration = time.monotonic()
 

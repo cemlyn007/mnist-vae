@@ -75,6 +75,7 @@ class Experiment:
         self._decoder = self._get_decoder()
         self._optimizer = self._get_optimizer(hyperparameters.learning_rate)
         self._last_batch_size = sys.maxsize
+        self._state = self._initial_state(jax.random.PRNGKey(0))
 
         self._train_step = jax.jit(
             self._train_step, static_argnames=("batch_size",), device=self._device

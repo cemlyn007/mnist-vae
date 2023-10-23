@@ -55,6 +55,10 @@ def get_last_hyperparameters_and_settings(
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.set_start_method("spawn")
+    # https://stackoverflow.com/questions/46335842/python-multiprocessing-throws-error-with-argparse-and-pyinstaller
+    multiprocessing.freeze_support()
     import os
     import argparse
     import shutil
@@ -62,9 +66,6 @@ if __name__ == "__main__":
     import keyring
     import json
     import webbrowser
-    import multiprocessing
-
-    multiprocessing.set_start_method("spawn")
 
     default_experiment_directory = os.path.join(os.path.expanduser("~"), "experiments")
     if platform.system() == "Darwin":

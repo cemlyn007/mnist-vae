@@ -78,7 +78,6 @@ class Renderer:
         self.open = True
 
     def update(self) -> Settings:
-        self._root.update_idletasks()
         self._root.update()
         return self._settings
 

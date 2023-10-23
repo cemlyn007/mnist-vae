@@ -56,6 +56,7 @@ def get_last_hyperparameters_and_settings(
 
 if __name__ == "__main__":
     import multiprocessing
+
     multiprocessing.set_start_method("spawn")
     # https://stackoverflow.com/questions/46335842/python-multiprocessing-throws-error-with-argparse-and-pyinstaller
     multiprocessing.freeze_support()
@@ -66,6 +67,7 @@ if __name__ == "__main__":
     import keyring
     import json
     import webbrowser
+    import neptune.exceptions
 
     default_experiment_directory = os.path.join(os.path.expanduser("~"), "experiments")
     if platform.system() == "Darwin":
@@ -141,39 +143,46 @@ if __name__ == "__main__":
         if not neptune_api_token:
             neptune_api_token = password["neptune_api_token"]
 
+    hyperparameters = experiment.Hyperparameters(
+        latent_dims=latent_size, learning_rate=1e-3
+    )
+    settings = renderer.Settings(
+        latent_size=latent_size,
+        beta=0.5,
+        learning_rate=hyperparameters.learning_rate,
+        predict_interval=predict_interval,
+        tsne_interval=tsne_interval,
+        tsne_perplexity=tsne_perplexity,
+        tsne_iterations=tsne_iterations,
+        batch_size=batch_size,
+        checkpoint_interval=checkpoint_save_interval,
+        checkpoint_max_to_keep=checkpoint_max_to_keep,
+        neptune_project_name=neptune_project,
+        neptune_api_token=neptune_api_token,
+        state=renderer.State.NEW,
+    )
+
     if os.path.exists(last_neptune_run_path):
-        last_neptune_run = get_last_neptune_run(last_neptune_run_path)
-        hyperparameters, settings = get_last_hyperparameters_and_settings(
-            last_neptune_run,
-            neptune_project,
-            neptune_api_token,
-            predict_interval=predict_interval,
-            tsne_interval=tsne_interval,
-            tsne_perplexity=tsne_perplexity,
-            tsne_iterations=tsne_iterations,
-            checkpoint_interval=checkpoint_save_interval,
-            checkpoint_max_to_keep=checkpoint_max_to_keep,
-        )
+        try:
+            last_neptune_run = get_last_neptune_run(last_neptune_run_path)
+            hyperparameters, settings = get_last_hyperparameters_and_settings(
+                last_neptune_run,
+                neptune_project,
+                neptune_api_token,
+                predict_interval=predict_interval,
+                tsne_interval=tsne_interval,
+                tsne_perplexity=tsne_perplexity,
+                tsne_iterations=tsne_iterations,
+                checkpoint_interval=checkpoint_save_interval,
+                checkpoint_max_to_keep=checkpoint_max_to_keep,
+            )
+        except (
+            neptune.common.exceptions.NeptuneInvalidApiTokenException,
+            neptune.exceptions.MissingFieldException,
+        ):
+            last_neptune_run = None
     else:
         last_neptune_run = None
-        hyperparameters = experiment.Hyperparameters(
-            latent_dims=latent_size, learning_rate=1e-3
-        )
-        settings = renderer.Settings(
-            latent_size=latent_size,
-            beta=0.5,
-            learning_rate=hyperparameters.learning_rate,
-            predict_interval=predict_interval,
-            tsne_interval=tsne_interval,
-            tsne_perplexity=tsne_perplexity,
-            tsne_iterations=tsne_iterations,
-            batch_size=batch_size,
-            checkpoint_interval=checkpoint_save_interval,
-            checkpoint_max_to_keep=checkpoint_max_to_keep,
-            neptune_project_name=neptune_project,
-            neptune_api_token=neptune_api_token,
-            state=renderer.State.NEW,
-        )
 
     if getattr(sys, "frozen", False):
         working_directory = sys._MEIPASS

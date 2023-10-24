@@ -364,13 +364,20 @@ class Renderer:
             row=17, columnspan=2, sticky="ew"
         )
 
+        self._reset_button = tk.Button(
+            frame,
+            text="Reset",
+            command=self._reset_callback,
+        )
+        self._reset_button.grid(column=0, row=18, sticky="ew")
+
         self._upload_button = tk.Button(
             frame,
             text="Upload Model",
             command=self._upload_action,
             state="disabled" if self._settings.state != State.NEW else "normal",
         )
-        self._upload_button.grid(row=18, columnspan=2, sticky="ew")
+        self._upload_button.grid(column=1, row=18, sticky="ew")
 
         self._state_button = tk.Button(
             frame,
@@ -379,12 +386,9 @@ class Renderer:
         )
         self._state_button.grid(column=0, row=19, sticky="ew")
 
-        self._reset_button = tk.Button(
-            frame,
-            text="Reset",
-            command=self._reset_callback,
-        )
-        self._reset_button.grid(column=1, row=19, sticky="ew")
+        self._duration_ms_text = tk.StringVar(frame, value=f"Step Duration (ms): {0:.2f}")
+        self._duration_ms_textbox = ttk.Label(frame, textvariable=self._duration_ms_text)
+        self._duration_ms_textbox.grid(column=1, row=19, sticky="ew")
 
     def _latent_size_callback(self, event=None) -> None:
         value = self._latent_size_text.get().strip()
@@ -615,3 +619,6 @@ class Renderer:
     def _upload_action(self, event=None) -> None:
         filename = tkinter.filedialog.askopenfilename()
         self._settings = self._settings._replace(model_filepath=filename)
+
+    def update_duration_ms(self, duration_ms: float) -> None:
+        self._duration_ms_text.set(f"Step Duration (ms): {duration_ms:.2f}")

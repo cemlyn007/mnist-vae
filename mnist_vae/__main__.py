@@ -320,6 +320,7 @@ if __name__ == "__main__":
                         try:
                             process.start()
                             old_settings = settings
+                            time_of_last_step = time.time()
                             while view.open and not mine.closed and process.is_alive():
                                 new_settings = view.update()
 
@@ -344,6 +345,10 @@ if __name__ == "__main__":
                                         write_logger.append_images(
                                             log_images, step, timestamp
                                         )
+                                        timestamp = time.time()
+                                        duration_ms = (timestamp - time_of_last_step) * 1000.0
+                                        time_of_last_step = timestamp
+                                        view.update_duration_ms(duration_ms)
                         except KeyboardInterrupt:
                             print("Stopping...", flush=True)
                         finally:

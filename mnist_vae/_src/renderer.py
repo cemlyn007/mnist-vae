@@ -4,6 +4,7 @@ import typing
 import sys
 import enum
 from tkinter import messagebox
+import tkinter.filedialog
 
 
 class State(enum.Enum):
@@ -25,6 +26,7 @@ class Settings(typing.NamedTuple):
     checkpoint_max_to_keep: int
     neptune_project_name: str
     neptune_api_token: str
+    model_filepath: str
     state: State
 
 
@@ -359,22 +361,30 @@ class Renderer:
         )
 
         ttk.Separator(frame, orient="horizontal").grid(
-            row=19, columnspan=2, sticky="ew"
+            row=17, columnspan=2, sticky="ew"
         )
+
+        self._upload_button = tk.Button(
+            frame,
+            text="Upload Model",
+            command=self._upload_action,
+            state="disabled" if self._settings.state != State.NEW else "normal",
+        )
+        self._upload_button.grid(row=18, columnspan=2, sticky="ew")
 
         self._state_button = tk.Button(
             frame,
             text="Start" if self._settings.state == State.NEW else "Resume",
             command=self._start_callback,
         )
-        self._state_button.grid(column=0, row=17, sticky="ew")
+        self._state_button.grid(column=0, row=19, sticky="ew")
 
         self._reset_button = tk.Button(
             frame,
             text="Reset",
             command=self._reset_callback,
         )
-        self._reset_button.grid(column=1, row=17, sticky="ew")
+        self._reset_button.grid(column=1, row=19, sticky="ew")
 
     def _latent_size_callback(self, event=None) -> None:
         value = self._latent_size_text.get().strip()
@@ -546,13 +556,19 @@ class Renderer:
                     widget_callback()
                 else:
                     print("Error: Invalid input", flush=True)
+                    self.show_error("Error: Invalid input!")
                     return
+
+            if self._settings.model_filepath == "":
+                self.show_error("Error: Please upload a model file!")
+                return
 
             self._latent_size_input.configure(state="disabled")
             self._state_button.config(text="Pause")
             self._neptune_project_input.configure(state="disabled")
             self._neptune_api_token_input.configure(state="disabled")
             self._reset_button.configure(state="disabled")
+            self._upload_button.configure(state="disabled")
             self._settings = self._settings._replace(state=State.RUNNING)
         elif self._settings.state == State.PAUSED:
             self._state_button.config(text="Pause")
@@ -572,6 +588,8 @@ class Renderer:
         self._neptune_project_input.configure(state="normal")
         self._neptune_api_token_input.configure(state="normal")
         self._reset_button.configure(state="normal")
+        self._upload_button.configure(state="normal")
+        self._settings = self._settings._replace(model_filepath="")
 
     def _set_window_closed(self) -> None:
         self.open = False
@@ -593,3 +611,7 @@ class Renderer:
 
     def show_error(self, message: str) -> None:
         messagebox.showerror("Error", message)
+
+    def _upload_action(self, event=None) -> None:
+        filename = tkinter.filedialog.askopenfilename()
+        self._settings = self._settings._replace(model_filepath=filename)

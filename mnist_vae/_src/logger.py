@@ -63,6 +63,12 @@ class Logger:
                 step=step,
             )
 
+    def upload_file(self, name: str, path: str) -> None:
+        self._run[name].upload(path)
+
+    def download_file(self, name: str, destination: str) -> None:
+        self._run[name].download(destination)
+
     @property
     def run_id(self) -> str:
         return self._run["sys/id"].fetch()

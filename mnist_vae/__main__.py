@@ -16,6 +16,7 @@ def cache_neptune_run_id(last_neptune_file_path: str, run_id: str) -> None:
 
 
 def get_last_hyperparameters_and_settings(
+    experiment_directory: str,
     last_neptune_run: str,
     neptune_project: str,
     neptune_api_token: str,
@@ -30,6 +31,8 @@ def get_last_hyperparameters_and_settings(
         neptune_project, neptune_api_token, last_neptune_run, read_only=True
     )
     try:
+        model_filepath = os.path.join(experiment_directory, "model.py")
+        read_logger.download_file("model", experiment_directory)
         hyperparameters = experiment.Hyperparameters(
             latent_dims=read_logger.get_int("hyperparameters/latent_dims"),
             learning_rate=read_logger.get_float("hyperparameters/learning_rate"),
@@ -48,6 +51,7 @@ def get_last_hyperparameters_and_settings(
             neptune_project_name=neptune_project,
             neptune_api_token=neptune_api_token,
             state=renderer.State.PAUSED,
+            model_filepath=model_filepath,
         )
     finally:
         read_logger.close()
@@ -160,12 +164,14 @@ if __name__ == "__main__":
         neptune_project_name=neptune_project,
         neptune_api_token=neptune_api_token,
         state=renderer.State.NEW,
+        model_filepath="",
     )
 
     if os.path.exists(last_neptune_run_path):
         try:
             last_neptune_run = get_last_neptune_run(last_neptune_run_path)
             hyperparameters, settings = get_last_hyperparameters_and_settings(
+                experiment_directory,
                 last_neptune_run,
                 neptune_project,
                 neptune_api_token,
@@ -204,13 +210,17 @@ if __name__ == "__main__":
 
             model_changed = (
                 settings.latent_size != hyperparameters.latent_dims
-                or settings.learning_rate != hyperparameters.learning_rate
             )
             if model_changed:
                 hyperparameters = hyperparameters._replace(
                     latent_dims=settings.latent_size,
+                )
+
+            if settings.learning_rate != hyperparameters.learning_rate:
+                hyperparameters = hyperparameters._replace(
                     learning_rate=settings.learning_rate,
                 )
+
 
             if model_changed or not initial_open:
                 last_neptune_run = None
@@ -280,17 +290,19 @@ if __name__ == "__main__":
                     try:
                         url = write_logger.get_url()
                         webbrowser.open_new_tab(url)
-                        if new_experiment:
+
+                        # Indicates this is a new experiment.
+                        if last_neptune_run is None:
                             cache_neptune_run_id(
                                 last_neptune_run_path, write_logger.run_id
                             )
-
-                        write_logger.set_values(
-                            {
-                                f"hyperparameters/{key}": value
-                                for key, value in hyperparameters._asdict().items()
-                            }
-                        )
+                            write_logger.set_values(
+                                {
+                                    f"hyperparameters/{key}": value
+                                    for key, value in hyperparameters._asdict().items()
+                                }
+                            )
+                            write_logger.upload_file("model", settings.model_filepath)
 
                         mine, theirs = multiprocessing.Pipe()
 

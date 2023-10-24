@@ -1,9 +1,9 @@
 from flax import linen as nn
 import jax
 import typing
+from typing import Callable
 from mnist_vae._src import mnist
 import jax.numpy as jnp
-import jax
 import optax
 import orbax.checkpoint as ocp
 import functools
@@ -16,28 +16,17 @@ class Encoder(nn.Module):
 
     @nn.compact
     def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array]:
-        x = nn.Dense(980)(x)
-        x = nn.relu(x)
-        x = nn.Dense(1024)(x)
-        x = nn.relu(x)
-        x = nn.Dense(1280)(x)
-        x = nn.relu(x)
-        latent_mean_and_log_variance = nn.Dense(self.latent_dims + self.latent_dims)(x)
-        latent_mean, latent_log_variance = jnp.split(
-            latent_mean_and_log_variance, 2, axis=1
-        )
-        return latent_mean, latent_log_variance
+        """Accepts a batched flattened 28x28 image.
+        Returns a tuple of (latent_mean, latent_log_variance)"""
+        raise NotImplementedError("Encoder not implemented!")
 
 
 class Decoder(nn.Module):
     @nn.compact
     def __call__(self, x: jax.Array) -> jax.Array:
-        x = nn.Dense(1280)(x)
-        x = nn.relu(x)
-        x = nn.Dense(1024)(x)
-        x = nn.relu(x)
-        x = nn.Dense(784)(x)
-        return x
+        """Accepts a batched latent vector.
+        Returns a batched flattened 28x28 image."""
+        raise NotImplementedError("Decoder not implemented!")
 
 
 class Hyperparameters(typing.NamedTuple):
@@ -60,6 +49,8 @@ class State(typing.NamedTuple):
 class Experiment:
     def __init__(
         self,
+        encoder_factory: Callable[[int], Encoder],
+        decoder_factory: Callable[[], Decoder],
         hyperparameters: Hyperparameters,
         checkpoint_directory: str,
         cache_directory: str,
@@ -71,8 +62,8 @@ class Experiment:
             self._checkpoint_directory, 0, 0
         )
         self.train_images, self.train_labels = self._get_training_data(cache_directory)
-        self._encoder = self._get_encoder(hyperparameters.latent_dims)
-        self._decoder = self._get_decoder()
+        self._encoder = encoder_factory(hyperparameters.latent_dims)
+        self._decoder = decoder_factory()
         self._optimizer = self._get_optimizer(hyperparameters.learning_rate)
         self._last_batch_size = sys.maxsize
         self._state = self._initial_state(jax.random.PRNGKey(0))

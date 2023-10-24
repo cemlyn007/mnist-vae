@@ -13,6 +13,7 @@ import sys
 import math
 import multiprocessing.connection
 import traceback
+import importlib.util
 
 class BadUpdateError(ValueError):
     pass
@@ -122,6 +123,19 @@ def get_some_images(
     return flattened_images, flattened_labels
 
 
+class UserModels:
+    def __init__(self, model_filepath: str) -> None:
+        spec = importlib.util.spec_from_file_location("user_data", model_filepath)
+        self._user_data = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self._user_data)
+
+    def get_encoder(self, latent_dims: int) -> Callable[[jax.Array], experiment.Encoder]:
+        return self._user_data.Encoder(latent_dims)
+    
+    def get_decoder(self) -> Callable[[], experiment.Decoder]:
+        return self._user_data.Decoder()
+
+
 def experiment_process(
     connection: multiprocessing.connection.Connection,
     hyperparameters: experiment.Hyperparameters,
@@ -131,8 +145,13 @@ def experiment_process(
 ) -> None:
     try:
         try:
+            connection.send("ready")
+            settings = connection.recv()
+
+            user_models = UserModels(settings.model_filepath)
+
             this_experiment = experiment.Experiment(
-                hyperparameters, checkpoint_path, cache_directory, backend
+                user_models.get_encoder, user_models.get_decoder, hyperparameters, checkpoint_path, cache_directory, backend
             )
             try:
                 (
@@ -157,8 +176,6 @@ def experiment_process(
                 log_values = {}
                 log_images = {}
 
-                connection.send("ready")
-                settings = connection.recv()
                 step = 0
                 while settings.state != renderer.State.NEW and not connection.closed:
                     start_iteration = time.monotonic()

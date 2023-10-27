@@ -76,9 +76,9 @@ pyinstall_command = [
     "--workpath",
     WORK_PATH,
     "--add-data",
-    f"{os.path.join(os.getcwd(), 'assets')}:assets",
+    f"{os.path.join(os.getcwd(), 'assets', 'icon.png')}:assets",
     "--icon",
-    os.path.join(os.getcwd(), "assets", "icon.icns"),
+    os.path.join(os.getcwd(), "assets", "icon.png"),
 ]
 for package_name in recursive_copy_metadata:
     pyinstall_command.append("--recursive-copy-metadata")

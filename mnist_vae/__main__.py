@@ -58,6 +58,32 @@ def get_last_hyperparameters_and_settings(
     return hyperparameters, settings
 
 
+def has_model_changed(
+    previous_settings: renderer.Settings,
+    settings: renderer.Settings,
+    hyperparameters: experiment.Hyperparameters,
+) -> bool:
+    model_changed = (
+        settings.latent_size != hyperparameters.latent_dims
+        or settings.model_filepath != previous_settings.model_filepath
+    )
+    # Here I am assuming that Neptune uploaded model file has not 
+    # been modified.
+    if os.path.exists(settings.model_filepath) and os.path.exists(
+        previous_settings.model_filepath
+    ):
+        with open(settings.model_filepath) as file:
+            a_contents = file.read()
+        with open(previous_settings.model_filepath) as file:
+            b_contents = file.read()
+        model_changed = model_changed or a_contents != b_contents
+    elif os.path.exists(settings.model_filepath):
+        model_changed = True
+    else:
+        model_changed = True
+    return model_changed
+
+
 if __name__ == "__main__":
     import multiprocessing
 
@@ -204,13 +230,15 @@ if __name__ == "__main__":
 
         initial_open = True
         while view.open and (initial_open or settings.state == renderer.State.NEW):
+            original_settings = settings
             while view.open and settings.state != renderer.State.RUNNING:
                 settings = view.update()
                 time.sleep(1.0 / 30.0)
 
-            model_changed = (
-                settings.latent_size != hyperparameters.latent_dims
+            model_changed = has_model_changed(
+                original_settings, settings, hyperparameters
             )
+
             if model_changed:
                 hyperparameters = hyperparameters._replace(
                     latent_dims=settings.latent_size,
@@ -220,7 +248,6 @@ if __name__ == "__main__":
                 hyperparameters = hyperparameters._replace(
                     learning_rate=settings.learning_rate,
                 )
-
 
             if model_changed or not initial_open:
                 last_neptune_run = None
@@ -346,7 +373,9 @@ if __name__ == "__main__":
                                             log_images, step, timestamp
                                         )
                                         timestamp = time.time()
-                                        duration_ms = (timestamp - time_of_last_step) * 1000.0
+                                        duration_ms = (
+                                            timestamp - time_of_last_step
+                                        ) * 1000.0
                                         time_of_last_step = timestamp
                                         view.update_duration_ms(duration_ms)
                         except KeyboardInterrupt:

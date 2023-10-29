@@ -96,7 +96,7 @@ class Experiment:
 
     def close(self) -> None:
         try:
-            step = self._state.step.item()
+            step = int(self._state.step.item())
             if self._checkpoint_manager.latest_step() != step:
                 self._checkpoint_manager.save(
                     self._state.step.item(), self._state, force=True
@@ -153,12 +153,6 @@ class Experiment:
         )
         train_labels = dataset.load_train_labels(self._device)
         return train_images, train_labels
-
-    def _get_encoder(self, latent_dims: int) -> Encoder:
-        return Encoder(latent_dims=latent_dims)
-
-    def _get_decoder(self) -> Decoder:
-        return Decoder()
 
     def _get_optimizer(self, learning_rate: float) -> optax.GradientTransformation:
         return optax.inject_hyperparams(optax.adam)(learning_rate=learning_rate)
@@ -259,10 +253,25 @@ class Experiment:
         latent_mean, latent_log_variance = self._encoder.apply(
             model_variables.encoder, train_images
         )
+        if latent_mean.shape != (batch_size, self._encoder.latent_dims):
+            raise ValueError(
+                f"Latent mean shape {latent_mean.shape} does not match the expected shape {(batch_size,)}"
+            )
+        elif latent_log_variance.shape != (batch_size, self._encoder.latent_dims):
+            raise ValueError(
+                f"Latent log variance shape {latent_log_variance.shape} does not match the expected shape {(batch_size,)}"
+            )
+        # else...
         sampled_latent = latent_mean + jnp.exp(
             latent_log_variance * 0.5
         ) * jax.random.normal(key, latent_log_variance.shape)
         predictions = self._decoder.apply(model_variables.decoder, sampled_latent)
+
+        if predictions.shape != train_images.shape:
+            raise ValueError(
+                f"Predictions shape {predictions.shape} does not match train images shape {train_images.shape}"
+            )
+        # else...
 
         binary_cross_entropy = optax.sigmoid_binary_cross_entropy(
             predictions, train_images

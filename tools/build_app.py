@@ -83,7 +83,7 @@ pyinstall_command = [
 
 if sys.platform == "darwin":
     pyinstall_command.append("--icon")
-    pyinstall_command.append(os.path.join(os.getcwd(), "assets", "icon.icns"))
+    pyinstall_command.append(os.path.join(os.getcwd(), "assets", "icon.png"))
 
 for package_name in recursive_copy_metadata:
     pyinstall_command.append("--recursive-copy-metadata")

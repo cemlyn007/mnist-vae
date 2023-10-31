@@ -4,11 +4,16 @@ import sys
 import pkg_resources
 import os
 import shutil
+import subprocess
+
+ONE_FILE = False
 
 ROOT_PATH = os.path.join("/", "tmp", "mnist-vae")
 WORK_PATH = os.path.join(ROOT_PATH, "build")
 DIST_PATH = os.path.join(ROOT_PATH, "dist")
 SPEC_PATH = os.path.join(ROOT_PATH, "main.spec")
+
+BUNDLE_NAME = "MNIST-VAE"
 
 if os.path.exists(WORK_PATH):
     shutil.rmtree(WORK_PATH)
@@ -43,32 +48,29 @@ collect_all_packages = []
 if sys.platform == "linux":
     collect_all_packages.append("nvidia")
 
+jax_version = None
 jax_location = None
 
 for package in pkg_resources.working_set:
-    if sys.platform == "linux":
-        if any(maybe_needed in package.project_name for maybe_needed in ["nvidia"]):
-            recursive_copy_metadata.append(package.project_name)
 
     if "jax" == package.project_name:
         jax_location = os.path.join(package.location, package.project_name)
         jax_version = package.version
         collect_all_packages.append(package.project_name)
 
-if jax_location is None:
+if jax_version is None or jax_location is None:
     raise RuntimeError(
         "JAX could not be found but is required to build the application, have you installed the requirements before running?"
     )
 # else...
-
 
 pyinstall_command = [
     "mnist_vae/__main__.py",
     "--specpath",
     os.path.dirname(SPEC_PATH),
     "--name",
-    "MNIST-VAE",
-    "--onedir",
+    BUNDLE_NAME,
+    "--onefile" if ONE_FILE else "--onedir",
     "--windowed",
     "--noupx",
     "--distpath",
@@ -77,9 +79,12 @@ pyinstall_command = [
     WORK_PATH,
     "--add-data",
     f"{os.path.join(os.getcwd(), 'assets')}:assets",
-    "--icon",
-    os.path.join(os.getcwd(), "assets", "icon.icns"),
 ]
+
+if sys.platform == "darwin":
+    pyinstall_command.append("--icon")
+    pyinstall_command.append(os.path.join(os.getcwd(), "assets", "icon.icns"))
+
 for package_name in recursive_copy_metadata:
     pyinstall_command.append("--recursive-copy-metadata")
     pyinstall_command.append(package_name)
@@ -87,7 +92,6 @@ for package_name in recursive_copy_metadata:
 for package_name in collect_all_packages:
     pyinstall_command.append("--collect-all")
     pyinstall_command.append(package_name)
-
 
 jax_mlir_filepath = os.path.join(jax_location, "_src", "interpreters", "mlir.py")
 if not os.path.exists(jax_mlir_filepath):
@@ -123,3 +127,35 @@ try:
 finally:
     with open(jax_mlir_filepath, "w") as f:
         f.writelines(mlir_lines)
+
+
+if sys.platform == "linux":
+    SNAP_DIRECTORY = os.path.join(os.getcwd(), "snap")
+    LOCAL_SOURCE = os.path.join(SNAP_DIRECTORY, "local")
+
+    files = os.listdir(SNAP_DIRECTORY)
+    for file in files:
+        if file.endswith(".snap"):
+            os.remove(os.path.join(SNAP_DIRECTORY, file))
+
+    if ONE_FILE:
+        if not os.path.exists(LOCAL_SOURCE):
+            os.makedirs(LOCAL_SOURCE)
+        shutil.rmtree(os.path.join(LOCAL_SOURCE, "*"), ignore_errors=True)
+        snap_local_copy = os.path.join(LOCAL_SOURCE, BUNDLE_NAME)
+        shutil.copy(os.path.join(DIST_PATH, BUNDLE_NAME), snap_local_copy)
+    else:
+        if os.path.exists(LOCAL_SOURCE):
+            shutil.rmtree(LOCAL_SOURCE)
+        shutil.copytree(
+            os.path.join(DIST_PATH, BUNDLE_NAME),
+            LOCAL_SOURCE,
+            symlinks=False,
+            ignore=None,
+            copy_function=shutil.copy2,
+            ignore_dangling_symlinks=False,
+        )
+
+    print("Building snap...", flush=True)
+    subprocess.check_call(['snapcraft'], cwd=SNAP_DIRECTORY)
+

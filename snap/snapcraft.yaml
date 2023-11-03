@@ -22,6 +22,7 @@ apps:
       - x11
       - hardware-observe
       - network-bind
+      - unity7
     environment:
       # Note: Missing ptxas bin and nvvm paths.
       LD_LIBRARY_PATH: $SNAP/_internal/nvidia/cublas/lib:$SNAP/_internal/nvidia/cuda_cupti/lib:$SNAP/_internal/nvidia/cuda_nvcc/lib:$SNAP/_internal/nvidia/cuda_runtime/lib:$SNAP/_internal/nvidia/cudnn/lib:$SNAP/_internal/nvidia/cufft/lib:$SNAP/_internal/nvidia/cusolver/lib:$SNAP/_internal/nvidia/cusparse/lib:$SNAP/_internal/nvidia/nccl/lib:$SNAP/_internal/nvidia/nvjitlink/lib:$SNAP/_internal:$LD_LIBRARY_PATH

@@ -1,4 +1,4 @@
-Notes:
+# Linux x86_64 CPU or CUDA 12
 Don't forget to copy the archived app into a folder called local-source.
 When developing, install using something like:
 ```
@@ -8,7 +8,9 @@ When installing for production use:
 ```
 snap install --dangerous mnist-vae_*_amd64.snap
 snap connect mnist-vae:password-manager-service
+snap connect mnist-vae:hardware-observe
 ```
+Note that `--dangerous` is used because the snap has not been signed.
 Uninstall using:
 ```
 sudo snap remove --purge mnist-vae

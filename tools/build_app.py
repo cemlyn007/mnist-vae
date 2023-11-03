@@ -8,12 +8,12 @@ import subprocess
 
 ONE_FILE = False
 
+BUNDLE_NAME = "MNIST-VAE"
 ROOT_PATH = os.path.join("/", "tmp", "mnist-vae")
 WORK_PATH = os.path.join(ROOT_PATH, "build")
 DIST_PATH = os.path.join(ROOT_PATH, "dist")
-SPEC_PATH = os.path.join(ROOT_PATH, "main.spec")
+SPEC_PATH = os.path.join(ROOT_PATH, f"{BUNDLE_NAME}.spec")
 
-BUNDLE_NAME = "MNIST-VAE"
 
 if os.path.exists(WORK_PATH):
     shutil.rmtree(WORK_PATH)
@@ -52,11 +52,12 @@ jax_version = None
 jax_location = None
 
 for package in pkg_resources.working_set:
-
     if "jax" == package.project_name:
         jax_location = os.path.join(package.location, package.project_name)
         jax_version = package.version
         collect_all_packages.append(package.project_name)
+    if "jax-metal" == package.project_name:
+        collect_all_packages.append("jax_plugins.metal_plugin")
 
 if jax_version is None or jax_location is None:
     raise RuntimeError(
@@ -93,6 +94,7 @@ for package_name in collect_all_packages:
     pyinstall_command.append("--collect-all")
     pyinstall_command.append(package_name)
 
+
 jax_mlir_filepath = os.path.join(jax_location, "_src", "interpreters", "mlir.py")
 if not os.path.exists(jax_mlir_filepath):
     raise RuntimeError(
@@ -128,6 +130,12 @@ finally:
     with open(jax_mlir_filepath, "w") as f:
         f.writelines(mlir_lines)
 
+if not os.path.exists(SPEC_PATH):
+    raise RuntimeError(
+        f"Could not find {SPEC_PATH} which is an expected of running PyInstaller!"
+    )
+# else...
+
 
 if sys.platform == "linux":
     SNAP_DIRECTORY = os.path.join(os.getcwd(), "snap")
@@ -157,5 +165,4 @@ if sys.platform == "linux":
         )
 
     print("Building snap...", flush=True)
-    subprocess.check_call(['snapcraft'], cwd=SNAP_DIRECTORY)
-
+    subprocess.check_call(["snapcraft"], cwd=SNAP_DIRECTORY)

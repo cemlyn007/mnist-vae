@@ -1,19 +1,16 @@
 from typing import Callable, TypeVar
 import numpy as np
 import PIL.Image
-from mnist_vae import experiment, renderer, tsne
+from mnist_vae._src import experiment, renderer, tsne
 import time
 import jax
-from matplotlib.backends import backend_agg
-import matplotlib.figure
-import matplotlib.cm
-import matplotlib.patches
 import jax.numpy as jnp
 import sys
 import math
 import multiprocessing.connection
 import traceback
 import importlib.util
+
 
 class BadUpdateError(ValueError):
     pass
@@ -55,48 +52,12 @@ def get_some_images(
     flattened_labels = jnp.concatenate(flattened_labels, axis=0)
     return flattened_images, flattened_labels
 
-estimate_tsne = jax.jit(tsne.estimate_tsne)
 
 get_some_images = jax.jit(
     get_some_images,
     static_argnames=("images_per_digit",),
     backend="cpu" if sys.platform == "darwin" else None,
 )
-
-def get_tsne_plot(
-    latent_samples: jax.Array, labels: jax.Array, perplexity: float, iterations: int
-) -> PIL.Image.Image:
-    embeddings = estimate_tsne(
-        latent_samples,
-        jax.random.PRNGKey(0),
-        perplexity=perplexity,
-        iterations=iterations,
-        learning_rate=10.0,
-        momentum=0.9,
-    )
-    color_map = matplotlib.cm.rainbow(np.linspace(0, 1, 10))
-    DPI = 200
-    fig = matplotlib.figure.Figure(figsize=(1080 / DPI, 1080 / DPI), dpi=DPI)
-    ax = fig.add_subplot(111)
-    ax.scatter(
-        embeddings[:, 0],
-        embeddings[:, 1],
-        c=color_map[labels],
-        alpha=0.1,
-    )
-    ax.set_aspect("equal")
-    ax.set_axis_off()
-    ax.legend(
-        handles=[
-            matplotlib.patches.Patch(color=c, label=str(i))
-            for i, c in enumerate(color_map)
-        ],
-        loc="upper right",
-    )
-    fig.tight_layout()
-    canvas = backend_agg.FigureCanvasAgg(fig)
-    image_bytes, size = canvas.print_to_buffer()
-    return PIL.Image.frombuffer("RGBA", size, image_bytes)
 
 
 def get_some_images(
@@ -129,9 +90,11 @@ class UserModels:
         self._user_data = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self._user_data)
 
-    def get_encoder(self, latent_dims: int) -> Callable[[jax.Array], experiment.Encoder]:
+    def get_encoder(
+        self, latent_dims: int
+    ) -> Callable[[jax.Array], experiment.Encoder]:
         return self._user_data.Encoder(latent_dims)
-    
+
     def get_decoder(self) -> Callable[[], experiment.Decoder]:
         return self._user_data.Decoder()
 
@@ -147,11 +110,23 @@ def experiment_process(
         try:
             connection.send("ready")
             settings = connection.recv()
+            if not isinstance(settings, renderer.Settings):
+                raise TypeError(
+                    f"Expected renderer.Settings, got {type(settings)}: {settings}"
+                )
+            # else...
+
+            mnst_tsne_renderer = tsne.Renderer(backend)
 
             user_models = UserModels(settings.model_filepath)
 
             this_experiment = experiment.Experiment(
-                user_models.get_encoder, user_models.get_decoder, hyperparameters, checkpoint_path, cache_directory, backend
+                user_models.get_encoder,
+                user_models.get_decoder,
+                hyperparameters,
+                checkpoint_path,
+                cache_directory,
+                backend,
             )
             try:
                 (
@@ -265,7 +240,7 @@ def experiment_process(
                                 log_images["train/embeddings"],
                                 log_values["profile/tsne_duration_ms"],
                             ) = measure_duration_ms(
-                                get_tsne_plot,
+                                mnst_tsne_renderer,
                                 latent_samples,
                                 tsne_labels,
                                 settings.tsne_perplexity,

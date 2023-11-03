@@ -74,4 +74,7 @@ class Logger:
         return self._run["sys/id"].fetch()
 
     def close(self) -> None:
-        self._run.stop()
+        try:
+            self._run.sync()
+        finally:
+            self._run.stop()

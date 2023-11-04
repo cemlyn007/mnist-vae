@@ -19,6 +19,8 @@ I created this project because I wanted to learn the following:
 * How to write Flax models
 * I like watching the training process and seeing the results in real time, so I wanted to create a tool that would allow me to do this, an example is below.
 
+
+## Example Video of Training Visualisation
 [![Training Visualisation YouTube Video](assets/training_visualisation.jpg)](https://youtu.be/1FIlZZiGLuA)
 
 # Installation the Application

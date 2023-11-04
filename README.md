@@ -8,8 +8,9 @@ This project allows users to train a variational autoencoder (VAE) on the MNIST 
 ## Getting Started
 * You can run this application like an old Python package by pip installing the source code or by running the built MacOS or Linux app.
 * You will need to create a [Neptune](https://neptune.ai) account, it is free!
-* When running the app, you will need to upload a Flax model to train on the MNIST dataset. You can find some examples folder in `mnist_vae`.
+* When running the app, you will need to upload a Flax model to train on the MNIST dataset. You can find some in `mnist_vae/examples`.
 * Adjust the parameters and click start, your browser should automatically open a tab/window to the Neptune dashboard where you can see the results of your training.
+* Continue to adjust the parameters and see the results in real time from the Neptune tab!
 
 ## Why did I make this project?
 I created this project because I wanted to learn the following:

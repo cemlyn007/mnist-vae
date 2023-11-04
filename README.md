@@ -1,21 +1,8 @@
 # MNIST-VAE Application
 This project allows users to train a variational autoencoder (VAE) on the MNIST dataset. In particular the user can upload their own JAX Flax model and train it on the MNIST dataset. The user can dynamically adjust hyperparameters and see the results of the training in real time as all metrics and images are uploaded to Neptune.
 
-<style>
-    .screenshot {
-        width: 450px;
-        height: auto;
-    }
-
-    @media only screen and (max-width: 600px) {
-        .screenshot {
-            width: 80vw;
-        }
-    }
-</style>
-
 <p align="center">
-  <img class="screenshot" src="assets/mac.jpeg">
+  <img style="max-width: 450px; width: 80%;" src="assets/mac.jpeg">
 </p>
 
 ## Getting Started

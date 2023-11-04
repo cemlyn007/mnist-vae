@@ -7,6 +7,7 @@ import numpy as np
 import neptune.types
 import concurrent.futures
 import tempfile
+import moviepy.editor
 
 
 class GifRenderer:
@@ -45,6 +46,12 @@ class GifRenderer:
                     data["train"]["embeddings"],
                     data["train"]["predicted_images"].items(),
                     os.path.join(self.directory, "ai.gif"),
+                )
+            )
+            work.append(
+                lambda: self._gif_to_mp4(
+                    os.path.join(self.directory, "ai.gif"),
+                    os.path.join(self.directory, "ai.mp4"),
                 )
             )
 
@@ -129,6 +136,7 @@ class GifRenderer:
             save_all=True,
             duration=100,
             loop=0,
+            optimize=True,
         )
 
     def _merge_embeddings_with_digits(
@@ -214,7 +222,12 @@ class GifRenderer:
             save_all=True,
             duration=100,
             loop=0,
+            optimize=True,
         )
+
+    def _gif_to_mp4(self, gif_filepath: str, destination: str) -> None:
+        clip = moviepy.editor.VideoFileClip(gif_filepath)
+        clip.write_videofile(destination)
 
     def _get_data_paths(self, directory: str) -> dict[str, any]:
         data_paths = {}

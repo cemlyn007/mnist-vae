@@ -22,34 +22,37 @@ class GifRenderer:
             print(f"Rendering GIF for run {self.run_id}...")
 
             work = [
-                (
+                lambda: self._create_gif(
                     data["train"]["embeddings"],
                     os.path.join(self.directory, "embeddings.gif"),
                 )
             ]
             for digit, digit_directory in data["train"]["predicted_images"].items():
                 work.append(
-                    (
+                    lambda: self._create_gif(
                         digit_directory,
                         os.path.join(self.directory, f"{digit}.gif"),
                     )
                 )
+            work.append(
+                lambda: self._merge_digit_gifs(
+                    data["train"]["predicted_images"].items(),
+                    os.path.join(self.directory, "digits.gif"),
+                )
+            )
+            work.append(
+                lambda: self._merge_embeddings_with_digits(
+                    data["train"]["embeddings"],
+                    data["train"]["predicted_images"].items(),
+                    os.path.join(self.directory, "ai.gif"),
+                )
+            )
 
             if not os.path.exists(self.directory):
                 os.makedirs(self.directory)
 
-            for source_directory, destination in tqdm.tqdm(work, total=len(work)):
-                self._create_gif(source_directory, destination)
-
-            self._merge_digit_gifs(
-                data["train"]["predicted_images"].items(),
-                os.path.join(self.directory, "digits.gif"),
-            )
-            self._merge_embeddings_with_digits(
-                data["train"]["embeddings"],
-                data["train"]["predicted_images"].items(),
-                os.path.join(self.directory, "ai.gif"),
-            )
+            for make_gif in tqdm.tqdm(work, total=len(work)):
+                make_gif()
 
     def _create_gif(self, source_directory: str, destination: str) -> None:
         filenames = os.listdir(source_directory)
@@ -175,7 +178,7 @@ class GifRenderer:
                     raise ValueError(
                         f"Expected all digits images to have the same dimensions, but got {images}."
                     )
-        n_frames = min(n_frames)
+        n_frames = min(min(n_frames), len(embedding_images))
         stacked_digits_images = [
             np.hstack(
                 [
@@ -193,16 +196,10 @@ class GifRenderer:
                 PIL.Image.fromarray(
                     np.vstack(
                         [
-                            np.tile(
-                                np.expand_dims(
-                                    np.array(
-                                        image.resize(
-                                            (1200, round((1200 / 280) * image.size[1]))
-                                        )
-                                    ),
-                                    -1,
-                                ),
-                                (1, 1, 4),
+                            np.array(
+                                image.resize(
+                                    (1200, round((1200 / 280) * image.size[1]))
+                                ).convert("RGBA")
                             ),
                             embedding_images[frame_index],
                         ]

@@ -16,7 +16,9 @@ I created this project because I wanted to learn the following:
 * How to package a Python application for MacOS and Linux whilst still being able to use JAX accelerators
 * How would I need to organise my code to be able to dynamically change settings at runtime and see the results in real time
 * How to write Flax models
+* I like watching the training process and seeing the results in real time, so I wanted to create a tool that would allow me to do this, an example is below.
 
+[![Training Visualisation YouTube Video](assets/training_visualisation.jpg)](https://youtu.be/1FIlZZiGLuA)
 
 # Installation the Application
 ## From Source
